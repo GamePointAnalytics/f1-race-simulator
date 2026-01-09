@@ -60,15 +60,7 @@ function onLapComplete(driver) {
 
 function onRaceFinish(results) {
     cancelAnimationFrame(gameLoopId);
-    ui.showScreen('post');
-    const winner = results[0];
-    const isMe = winner.id === userDriverId;
-    document.getElementById('podium-display').innerHTML = `
-        <h2>Winner: ${winner.name}</h2>
-        ${isMe ? '<h3 class="accent">FANTASTIC DRIVE! P1!</h3>' : `<h3>You finished P${results.findIndex(d => d.id === userDriverId) + 1}</h3>`}
-    `;
-
-    document.getElementById('restart-btn').onclick = () => location.reload();
+    ui.renderPostRace(results, userDriverId, () => location.reload());
 }
 
 function setupControls() {

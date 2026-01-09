@@ -18,7 +18,8 @@ export const CIRCUITS = [
         weatherBias: 0.2,
         pitTimeLoss: 26.0,
         drsZones: [[0.0, 0.15], [0.45, 0.55]],
-        path: "M 100,250 C 100,200 150,50 300,50 L 500,50 C 650,50 700,200 700,250 L 700,400 C 700,500 600,550 400,550 L 200,550 C 100,550 100,450 100,250 Z"
+        // Monza: High speed, chicanes
+        path: "M 100,300 L 400,300 Q 420,300 430,280 L 440,250 Q 450,230 480,230 L 600,230 Q 650,230 660,280 L 670,400 Q 680,450 630,450 L 500,450 L 200,450 Q 150,450 140,400 L 120,350 Q 110,320 100,300 Z"
     },
     {
         id: "monaco",
@@ -31,7 +32,8 @@ export const CIRCUITS = [
         weatherBias: 0.1,
         pitTimeLoss: 24.0,
         drsZones: [[0.0, 0.08]],
-        path: "M 200,100 L 500,100 L 500,200 L 300,200 L 300,300 L 600,300 L 600,500 L 200,500 L 100,300 Z"
+        // Monaco: Tight, twists, tunnel
+        path: "M 250,500 L 250,450 Q 250,400 300,400 L 400,380 Q 420,380 430,420 L 440,480 Q 450,500 500,500 L 550,500 L 580,450 L 600,300 Q 610,250 550,250 L 450,250 Q 400,250 400,200 L 400,150 Q 400,100 350,100 L 200,100 Q 150,100 150,150 L 150,300 Q 150,350 200,350 L 220,350 L 250,500 Z"
     },
     {
         id: "spa",
@@ -57,7 +59,8 @@ export const CIRCUITS = [
         weatherBias: 0.5,
         pitTimeLoss: 29.0,
         drsZones: [[0.2, 0.3], [0.55, 0.65]],
-        path: "M 300,50 L 500,50 L 700,200 L 600,500 L 200,500 L 100,200 Z"
+        // Silverstone: Complex high speed
+        path: "M 350,500 L 250,480 Q 200,470 200,420 L 220,300 Q 230,250 280,250 L 350,260 Q 400,260 420,200 L 450,100 Q 460,50 500,50 L 600,50 Q 650,50 660,100 L 670,300 L 600,450 Q 550,500 450,500 L 350,500 Z"
     },
     {
         id: "interlagos",
@@ -70,6 +73,21 @@ export const CIRCUITS = [
         weatherBias: 0.4,
         pitTimeLoss: 25.0,
         drsZones: [[0.9, 1.0], [0.0, 0.1], [0.4, 0.5]],
-        path: "M 400,300 C 300,300 100,300 100,200 C 100,100 300,100 400,100 C 600,100 700,300 600,500 L 300,500 Z"
+        // Interlagos: Anti-clockwise, Senna S
+        path: "M 300,500 L 500,480 L 600,400 Q 650,350 600,300 L 400,250 Q 300,230 350,150 L 400,100 Q 450,50 350,50 L 250,100 Q 200,150 250,200 L 300,250 L 250,350 Q 200,400 250,450 L 300,500 Z"
+    },
+    {
+        id: "test",
+        name: "Testing (Barcelona)",
+        country: "Spain",
+        laps: 5, // Short for testing
+        baseLapTime: 78.0,
+        overtakeDifficulty: 0.4,
+        tyreWearFactor: 1.1,
+        weatherBias: 0.1,
+        pitTimeLoss: 22.0,
+        drsZones: [[0.0, 0.15], [0.45, 0.55]],
+        // Barcelona layout approx
+        path: "M 150,500 L 550,500 Q 600,500 600,450 L 600,400 Q 600,350 550,350 L 450,350 Q 400,350 400,300 L 420,200 Q 430,150 480,150 L 550,150 Q 600,150 600,100 L 600,50 L 300,50 Q 250,50 250,100 L 250,150 L 150,250 Q 100,300 150,500 Z"
     }
 ];

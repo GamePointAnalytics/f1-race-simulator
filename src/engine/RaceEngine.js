@@ -8,6 +8,8 @@ export class RaceEngine {
         this.currentLap = 0; // Leading car lap
         this.weather = { type: 'DRY', rainIntensity: 0.0 }; // 0.0 to 1.0
         this.isRaceOver = false;
+        this.chequeredFlag = false;
+        this.nextFinishRank = 1;
 
         // Game Loop State
         this.time = 0;
@@ -32,6 +34,10 @@ export class RaceEngine {
             lastLapTime: 0,
             gapToLeader: 0,
             position: 0,
+            hasFinished: false,
+            hasFinished: false,
+            finishTime: 0, // Seconds
+            lapsCompleted: 0,
 
             // Car State
             tyre: startTyre,
@@ -55,20 +61,41 @@ export class RaceEngine {
     }
 
     update(dt) { // dt in seconds
-        if (this.isRaceOver) return;
+        // If everyone finished, stop
+        if (this.drivers.every(d => d.hasFinished)) {
+            if (!this.isRaceOver) this.finishRace();
+            return;
+        }
 
         this.time += dt;
 
         // Sort drivers by distance to determine position
         // This is simplified; in reality position checks happen at checkpoints.
         // We will just keep them sorted for the leaderboard.
+        // Sort drivers: Finished drivers by Rank, Active by Distance
         const activeDrivers = [...this.drivers];
-        activeDrivers.sort((a, b) => b.distance - a.distance);
+        activeDrivers.sort((a, b) => {
+            if (a.hasFinished && b.hasFinished) return a.finishRank - b.finishRank;
+            if (a.hasFinished) return -1; // a finished, b didn't -> a is ahead
+            if (b.hasFinished) return 1;
+            return b.distance - a.distance;
+        });
 
         // Leader ref
         const leader = activeDrivers[0];
+
+        // Flag Logic
+        if (!this.chequeredFlag && leader.lap >= this.laps) {
+            this.chequeredFlag = true; // Leader finished!
+            leader.hasFinished = true;
+            leader.finishRank = this.nextFinishRank++;
+            leader.position = leader.finishRank;
+            leader.finishTime = this.time;
+            leader.lapsCompleted = leader.lap;
+        }
+
         this.leaderDistance = leader.distance;
-        this.currentLap = Math.floor(leader.distance / this.getTrackLength()) + 1;
+        this.currentLap = Math.min(Math.floor(leader.distance / this.getTrackLength()) + 1, this.laps); // Cap at max laps
 
         // Update each driver
         this.drivers.forEach(driver => {
@@ -109,9 +136,23 @@ export class RaceEngine {
                 this.handleLapComplete(driver, currentLapCount);
             }
 
-            // Pit Entry Check (End of Lap)
-            // Simplified: If boxThisLap is true, they enter pits at end of lap
-            if (driver.boxThisLap && currentLapCount > oldLapCount) {
+            // Finish Line Check (If Flag is out)
+            // If flag is out (leader already finished), ANYONE crossing line finishes race
+            // regardless of their lap count (lapped cars finish a lap down).
+            const isCrossing = currentLapCount > oldLapCount;
+            if (this.chequeredFlag && isCrossing) {
+                if (!driver.hasFinished) {
+                    driver.hasFinished = true;
+                    driver.finishRank = this.nextFinishRank++;
+                    driver.position = driver.finishRank; // Lock position
+                    driver.finishTime = this.time;
+                    driver.lapsCompleted = currentLapCount; // Store final laps
+                }
+                return;
+            }
+
+            // Pit Entry (Only if NOT last lap)
+            if (driver.boxThisLap && currentLapCount > oldLapCount && !this.chequeredFlag && currentLapCount < this.laps) {
                 // He actually crossed the line, but let's say pit entry is right before line.
                 // We'll teleport him to pit state.
                 this.enterPit(driver);
@@ -128,11 +169,6 @@ export class RaceEngine {
 
         // Update positions array
         activeDrivers.forEach((d, i) => d.position = i + 1);
-
-        // Check Winner
-        if (leader.lap > this.laps) {
-            this.finishRace();
-        }
 
         if (this.onUpdate) this.onUpdate(activeDrivers, this.currentLap);
     }
@@ -211,11 +247,14 @@ export class RaceEngine {
 
         // Base wear per second with some randomness per driver
         // Use ID char code as seed for consistent randomness? Just Math.random ok for now.
-        let wearRate = 0.0006 * this.circuit.tyreWearFactor;
+        let wearRate = 0.0004 * this.circuit.tyreWearFactor * (tyre.speedParams.deg * 10);
 
         // Mode Multiplier
-        if (driver.mode === 'PUSH') wearRate *= 1.6;
-        if (driver.mode === 'CONSERVE') wearRate *= 0.6;
+        if (driver.mode === 'PUSH') wearRate *= 1.25;
+        if (driver.mode === 'CONSERVE') wearRate *= 0.8;
+
+        // Dirty Air Wear
+        if (driver.gapToAhead < 1.0) wearRate *= 1.1;
 
         driver.tyreHealth -= wearRate * dt;
         if (driver.tyreHealth < 0) driver.tyreHealth = 0;
@@ -273,9 +312,8 @@ export class RaceEngine {
     enterPit(driver) {
         driver.isInPit = true;
         driver.boxThisLap = false;
-        // Total time loss in pit area (Stationary + Lane time delta)
-        // We simulate this by holding them stationary for 25s.
-        driver.pitTimer = 25.0;
+        // Total time loss in pit area specific to track
+        driver.pitTimer = this.circuit.pitTimeLoss || 25.0;
 
         // Store pending choice
         if (!driver.pitPendingTyre) driver.pitPendingTyre = 'MEDIUM'; // Fallback
@@ -296,7 +334,8 @@ export class RaceEngine {
 
     finishRace() {
         this.isRaceOver = true;
-        this.drivers.sort((a, b) => b.distance - a.distance);
+        // Final Sort by Rank
+        this.drivers.sort((a, b) => (a.finishRank || 99) - (b.finishRank || 99));
         if (this.onRaceFinish) this.onRaceFinish(this.drivers);
     }
 

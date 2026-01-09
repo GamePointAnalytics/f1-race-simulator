@@ -387,3 +387,96 @@ h3 {
     cursor: pointer;
     color: black;
 }
+
+/* Post Race Styles */
+.podium-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    margin-bottom: 40px;
+    gap: 20px;
+}
+
+.podium-spot {
+    text-align: center;
+    width: 200px;
+}
+
+.podium-bar {
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 20px;
+    color: black;
+    font-weight: bold;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.podium-spot.p1 .podium-bar {
+    height: 250px;
+    background: #FFD700;
+    order: 2;
+}
+
+.podium-spot.p2 .podium-bar {
+    height: 180px;
+    background: #C0C0C0;
+    order: 1;
+}
+
+.podium-spot.p3 .podium-bar {
+    height: 140px;
+    background: #CD7F32;
+    order: 3;
+}
+
+.podium-spot.p1 {
+    order: 2;
+}
+
+.podium-spot.p2 {
+    order: 1;
+}
+
+.podium-spot.p3 {
+    order: 3;
+}
+
+.driver-name {
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+}
+
+.team-name {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 10px;
+}
+
+.classification-table {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    border-collapse: collapse;
+    background: var(--bg-panel);
+}
+
+.classification-table th,
+.classification-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+}
+
+.points-col {
+    color: var(--success);
+    font-weight: bold;
+}
+
+
+#post-race-screen {
+    overflow-y: auto;
+    justify-content: flex-start;
+    /* Ensure scrolling works from top */
+}
