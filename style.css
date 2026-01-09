@@ -178,7 +178,8 @@ h3 {
 /* Center Console Split */
 .center-console {
     display: grid;
-    grid-template-rows: 1fr 1fr;
+    /* Track Map gets remaining space, Radio gets fixed height */
+    grid-template-rows: 1fr 250px;
     gap: 15px;
     padding: 0;
     /* Remove padding for children to fit */

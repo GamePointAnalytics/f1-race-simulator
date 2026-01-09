@@ -38,6 +38,11 @@ export class RaceEngine {
         // Finish State
         this.chequeredFlag = false;
         this.nextFinishRank = 1;
+        this.crossoverMsgSent = false;
+
+        // Global Tyre Variance for this Session (+/- 10%)
+        // Simulates track surface condition (green vs rubbered in)
+        this.raceTyreScale = 0.90 + Math.random() * 0.20;
 
         // Init Drivers (After weather is set)
         this.drivers = drivers.map(d => this.initDriver(d, userDriverId, userStartTyre));
@@ -134,48 +139,89 @@ export class RaceEngine {
     }
 
     start() {
-        // Sort grid by speed initially (Qualifying sim)
-        this.drivers.sort((a, b) => b.speed - a.speed);
-        this.drivers.forEach((d, i) => d.position = i + 1);
+        // Drivers are passed in Grid Order from app.js (Qualifying results)
+        // No sorting needed here.
+
+        // Apply Grid Spacing (simulating standing start gaps)
+        // P1 starts at 0. P2 at -8m. P3 at -16m.
+        this.drivers.forEach((d, i) => {
+            d.position = i + 1;
+            d.distance = -(i * 8); // 8m grid spots
+        });
     }
 
     update(dt) { // dt in seconds
-        // If everyone finished, stop
-        if (this.drivers.every(d => d.hasFinished)) {
+        // Check if all active cars have finished (or DNF'd)
+        const allFinished = this.drivers.every(d => d.hasFinished || d.isDNF);
+        if (allFinished) {
             if (!this.isRaceOver) this.finishRace();
             return;
+        }
+
+        // Safety Timeout: Force finish 3 minutes after flag
+        if (this.chequeredFlag) {
+            if (!this.flagTimer) this.flagTimer = 0;
+            this.flagTimer += dt;
+
+            // Debug Log every 5 seconds
+            if (this.flagTimer % 5.0 < dt) {
+                const running = this.drivers.filter(d => !d.hasFinished && !d.isDNF);
+                console.log(`[RaceEngine] Waiting for ${running.length} cars:`, running.map(d => `${d.name} (L${d.lap})`).join(', '));
+            }
+
+            if (this.flagTimer > 180) {
+                console.warn("Force Finishing Race due to timeout.");
+                this.finishRace();
+                return;
+            }
         }
 
         this.time += dt;
 
         // Sort drivers by distance to determine position
+        // Sort drivers by Effective Distance (Fixes Lapped Car Jumps)
         const activeDrivers = [...this.drivers];
+        const trackLen = this.getTrackLength();
+
         activeDrivers.sort((a, b) => {
-            if (a.hasFinished && b.hasFinished) return a.finishRank - b.finishRank;
-            if (a.hasFinished) return -1;
-            if (b.hasFinished) return 1;
-            return b.distance - a.distance;
+            const getEffDist = (d) => {
+                // If finished, their race distance is fixed at the line
+                if (d.hasFinished) return d.lapsCompleted * trackLen;
+                // If running, use actual distance
+                return d.distance;
+            };
+
+            const distA = getEffDist(a);
+            const distB = getEffDist(b);
+
+            // Primary Sort: Distance
+            if (Math.abs(distA - distB) > 1.0) {
+                return distB - distA;
+            }
+
+            // Tie-Breaker: Crossing Order (if both finished)
+            if (a.hasFinished && b.hasFinished) {
+                return (a.finishRank || 999) - (b.finishRank || 999);
+            }
+
+            return distB - distA;
         });
 
-        // Leader ref
+        // Leader is always index 0 after separate physics update? 
+        // Wait, we haven't updated physics for this frame yet. 
+        // This sort is based on PREVIOUS frame. This is fine for Leader ID.
         const leader = activeDrivers[0];
 
         // Flag Logic
         if (!this.chequeredFlag && leader.lap >= this.laps) {
-            this.chequeredFlag = true; // Leader finished!
-            leader.hasFinished = true;
-            leader.finishRank = this.nextFinishRank++;
-            leader.position = leader.finishRank;
-            leader.finishTime = this.time;
-            leader.lapsCompleted = leader.lap;
+            this.chequeredFlag = true;
         }
 
         this.leaderDistance = leader.distance;
-        this.currentLap = Math.min(Math.floor(leader.distance / this.getTrackLength()) + 1, this.laps);
+        this.currentLap = Math.min(Math.floor(leader.distance / trackLen) + 1, this.laps);
 
-        // Update each driver
-        // Update each driver
-        this.drivers.forEach(driver => {
+        // Update each driver (In Sorted Order)
+        activeDrivers.forEach(driver => {
             // Pit Limit / Stop Logic
             if (driver.isInPit) {
                 driver.pitTimer -= dt;
@@ -192,8 +238,11 @@ export class RaceEngine {
             // Only calculate gaps and complex physics if RACING
             if (!driver.hasFinished) {
                 if (driver.position > 1) {
-                    const carAhead = activeDrivers.find(d => d.position === driver.position - 1);
-                    if (carAhead) {
+                    // Use array index from sorted list for 'Ahead'
+                    // activeDrivers is sorted by distance, so index-1 is car ahead.
+                    const myIdx = activeDrivers.indexOf(driver);
+                    if (myIdx > 0) {
+                        const carAhead = activeDrivers[myIdx - 1];
                         gapToAhead = (carAhead.distance - driver.distance) / 60.0;
                     }
                 }
@@ -201,7 +250,7 @@ export class RaceEngine {
                 speed = this.calculateSpeed(driver, gapToAhead);
             } else {
                 // Cooldown Lap: Cruise at 40% speed
-                speed = (this.getTrackLength() / this.circuit.baseLapTime) * 0.4;
+                speed = (trackLen / this.circuit.baseLapTime) * 0.4;
             }
 
             // Move
@@ -211,7 +260,6 @@ export class RaceEngine {
 
             // Integrity Checks & Racing Logic
             if (!driver.hasFinished) {
-                const trackLen = this.getTrackLength();
                 const currentLapCount = Math.floor(driver.distance / trackLen);
                 const oldLapCount = Math.floor(oldDist / trackLen);
 
@@ -221,13 +269,25 @@ export class RaceEngine {
                 }
 
                 // Check Finish
-                if (this.chequeredFlag && currentLapCount > oldLapCount) {
+                let shouldFinish = false;
+
+                // 1. Completed Full Race Distance (Leader + Lead Lap cars)
+                if (currentLapCount >= this.laps) {
+                    shouldFinish = true;
+                    if (!this.chequeredFlag) this.chequeredFlag = true; // Raise flag!
+                }
+                // 2. Crossed Line AFTER Flag is out (Lapped cars)
+                else if (this.chequeredFlag && currentLapCount > oldLapCount) {
+                    shouldFinish = true;
+                }
+
+                if (shouldFinish && !driver.hasFinished) {
                     driver.hasFinished = true;
-                    driver.finishRank = this.nextFinishRank++;
-                    driver.position = driver.finishRank;
+                    // Assign rank based on current physical position in the field
+                    driver.finishRank = activeDrivers.indexOf(driver) + 1;
+
                     driver.finishTime = this.time;
                     driver.lapsCompleted = currentLapCount;
-                    // Switch to cooldown next frame
                 }
 
                 // Pit Entry
@@ -243,8 +303,9 @@ export class RaceEngine {
             }
         });
 
-        // Update positions array
-        // Update positions array
+        // Update positions array based on the Sort performed AT START + Updates?
+        // Ideally we re-sort to be 100% accurate for display, but start-of-frame is standard game loop.
+        // We just assign index + 1 from the activeDrivers list we iterated.
         activeDrivers.forEach((d, i) => d.position = i + 1);
 
         this.gameTime += dt;
@@ -320,15 +381,15 @@ export class RaceEngine {
         const teamPerf = teamData ? teamData.performance : 0.95;
         // Range 0.88 to 0.99. Mid 0.93.
         // Scale to % modifier. 
-        // 0.99 -> +0.8%. 0.88 -> -0.8%.
-        // Spread ~1.6% (approx 1.3s lap time diff from car alone).
-        let teamMod = (teamPerf - 0.94) * 15;
+        // 0.995 (McLaren) -> +0.66%. 0.875 (Sauber) -> -0.78%.
+        // Spread ~1.44%. (approx 1.3s lap time diff). Dominant factor.
+        let teamMod = (teamPerf - 0.94) * 12; // Increased from 8 to 12
 
         // --- DRIVER SKILL ---
         // Range 80-99. 
-        // 99 -> +0.36%. 80 -> -0.4%.
-        // Spread ~0.8%. (approx 0.6s lap time diff from driver).
-        let skillMod = (driver.speed - 90) * 0.04; // Reduced from 0.08
+        // 99 -> +0.22%. 80 -> -0.25%.
+        // Spread ~0.5%. (approx 0.4s lap time diff from driver).
+        let skillMod = (driver.speed - 90) * 0.025; // Reduced from 0.04
 
         // --- TYRE BASE ---
         const tyre = TYRE_COMPOUNDS[driver.tyre];
@@ -367,24 +428,44 @@ export class RaceEngine {
         if (gapToAhead < 900) { // Check if valid gap exists
             const inDrsZone = this.circuit.drsZones ? this.circuit.drsZones.some(z => progress >= z[0] && progress <= z[1]) : true;
 
-            if (gapToAhead > 2.0) {
-                // Clean Air
-                aeroMod = 0.3;
-            } else if (gapToAhead > 0.8) {
-                // Dirty Air (Wake)
-                aeroMod = -0.6;
-            } else if (gapToAhead > 0.3) {
-                // Prime Overtaking Window (DRS)
-                aeroMod = -1.0; // Turbulence
-                if (inDrsZone && this.weather.type !== 'RAIN') {
-                    drsMod = 3.5; // Massive boost to clear the air
+            // --- MONACO SPECIAL RULES ---
+            if (this.circuit.id === 'monaco') {
+                // Monaco: Severe Dirty Air. Trulli Train Logic.
+                if (gapToAhead > 1.5) {
+                    aeroMod = 0.3; // Clean air reduced
+                } else if (gapToAhead > 0.3) {
+                    // Dirty Air: Massive penalty for just following
+                    aeroMod = -3.0; // Was -1.2
+                } else {
+                    // Overtake Attempt: Hitting a wall
+                    aeroMod = -5.0; // Was -2.5
+
+                    if (inDrsZone && this.weather.type !== 'RAIN') {
+                        drsMod = 0.5; // DRS almost useless
+                    }
                 }
-            } else {
-                // Wheel-to-Wheel Battle (< 0.3s)
-                // Compromised racing lines slow both cars down
-                aeroMod = -1.5;
-                if (inDrsZone && this.weather.type !== 'RAIN') {
-                    drsMod = 3.5;
+            }
+            // --- STANDARD TRACKS ---
+            else {
+                if (gapToAhead > 2.0) {
+                    // Clean Air
+                    aeroMod = 0.3;
+                } else if (gapToAhead > 0.8) {
+                    // Dirty Air (Wake)
+                    aeroMod = -0.6;
+                } else if (gapToAhead > 0.3) {
+                    // Prime Overtaking Window (DRS)
+                    aeroMod = -1.0; // Turbulence
+                    if (inDrsZone && this.weather.type !== 'RAIN') {
+                        drsMod = 3.5; // Massive boost to clear the air
+                    }
+                } else {
+                    // Wheel-to-Wheel Battle (< 0.3s)
+                    // Compromised racing lines slow both cars down
+                    aeroMod = -1.5;
+                    if (inDrsZone && this.weather.type !== 'RAIN') {
+                        drsMod = 3.5;
+                    }
                 }
             }
         }
@@ -418,7 +499,9 @@ export class RaceEngine {
             if (moisture < 0.15) {
                 moisturePenalty = moisture * 10;
             } else {
-                moisturePenalty = 1.5 + (moisture - 0.15) * 120; // Cliff
+                // Gradual Dropoff (Requested by User)
+                // Gradual Dropoff (Requested: 60)
+                moisturePenalty = 1.5 + (moisture - 0.15) * 60;
             }
         } else if (driver.tyre === 'INTER') {
             // Inters: 0.15 to 0.75
@@ -429,7 +512,7 @@ export class RaceEngine {
         }
         tyrePaceDelta -= moisturePenalty;
 
-        const totalModPct = (teamMod + skillMod + tyrePaceDelta + modeMod + drsMod + aeroMod - (wearPenalty * 10) + randomPace);
+        const totalModPct = (teamMod + skillMod + tyrePaceDelta + modeMod + drsMod + aeroMod - (wearPenalty * 5) + randomPace);
 
         let finalSpeed = baseSpeed * (1 + (totalModPct / 100));
 
@@ -442,7 +525,22 @@ export class RaceEngine {
     updateCarPhysics(driver, dt) {
         // --- 1. TYRE WEAR ---
         const tyre = TYRE_COMPOUNDS[driver.tyre];
-        let wearRate = 0.0004 * (this.circuit.tyreWearFactor || 1.0) * (tyre.speedParams.deg * 10);
+
+        // Calculate Base Duration in Seconds (Life (Laps) * LapTime (s))
+        // Adjusted by Circuit Wear Factor AND Race-Day Variance
+        const trackFactor = this.circuit.tyreWearFactor || 1.0;
+        const raceVar = this.raceTyreScale || 1.0; // Randomized per session
+
+        // Driver Skill: 99 -> 1.05 (+5% Life). 80 -> 0.95 (-5% Life).
+        const skillFactor = 0.95 + ((driver.tyreMgmt - 80) * 0.005); // Approx +/- 5%
+
+        // Effective Life in Laps
+        const effectiveLifeLaps = tyre.life * raceVar * skillFactor;
+
+        const totalLifeSeconds = (effectiveLifeLaps * this.circuit.baseLapTime) / trackFactor;
+
+        // Base wear per second to reach 0% at end of life
+        let wearRate = 1.0 / totalLifeSeconds;
 
         // Temperature Degradation Factor
         if (this.trackTemp > 30) {
@@ -522,8 +620,47 @@ export class RaceEngine {
         if (this.weather.type === 'RAIN') {
             const isSlicks = ['SOFT', 'MEDIUM', 'HARD'].includes(driver.tyre);
             if (isSlicks && !driver.boxThisLap && !driver.isInPit) {
-                // If SC, always pit. If not, maybe delay to split field.
-                if (this.safetyCarActive || !canDelay) {
+                // Indecision / Assessment Logic
+                // Drivers wait for track to actually get wet before committing
+                let pitProb = 0.05; // Default: Stay out if just starting
+
+                // Check Forecast Duration (How long will it rain?)
+                let rainDuration = 0;
+                let idx = this.currentWeatherBlockIndex;
+                while (idx < this.forecast.length && this.forecast[idx].type === 'RAIN') {
+                    const block = this.forecast[idx];
+                    const start = Math.max(block.startTime, this.gameTime);
+                    rainDuration += (block.endTime - start);
+                    idx++;
+                }
+                const isLongRain = rainDuration > 780; // > 13 mins
+
+                // --- BACKMARKER GAMBLE LOGIC ---
+                // Those at the back are more willing to gamble on the change
+                const rankPct = driver.position / this.drivers.length;
+                let gambleBias = 0;
+
+                if (rankPct > 0.5) {
+                    // Backmarker: Risk Taker
+                    // Up to +40% probability boost to pit early
+                    gambleBias = (rankPct - 0.5) * 0.8;
+                }
+
+                if (this.safetyCarActive) pitProb = 0.95;
+                else if (this.trackMoisture > 0.40) pitProb = 0.95;
+                else if (this.trackMoisture > 0.15) {
+                    // Damp Track (Intermediates Zone)
+                    // Conservative: 20%. Gambler: Up to 60%.
+                    pitProb = 0.20 + gambleBias;
+                }
+                else if (this.weather.rainIntensity > 0.7) pitProb = 0.60;
+
+                // Smart Strategy: If rain is here to stay, don't wait too long
+                if (isLongRain && pitProb < 0.8) {
+                    pitProb += 0.3;
+                }
+
+                if (Math.random() < pitProb) {
                     driver.boxThisLap = true;
                     driver.pitPendingTyre = 'INTER';
                     weatherCall = true;
@@ -535,13 +672,28 @@ export class RaceEngine {
                 // Decision Logic
                 let shouldBox = false;
 
+                // Backmarker Gamble: Switch early (higher moisture tolerance)
+                const rankPct = driver.position / this.drivers.length;
+                let tolerance = 0.20; // Standard AI threshold
+
+                if (rankPct > 0.5) {
+                    // Backmarker: Desperate
+                    // Willing to switch even if track is still 35% wet (Risk of sliding)
+                    // Scales up to 0.35 threshold
+                    tolerance += (rankPct - 0.5) * 0.30;
+                }
+
                 if (this.difficulty === 'HARD') {
                     // Smart AI
-                    if (this.trackMoisture < 0.20) shouldBox = true;
+                    if (this.trackMoisture < tolerance) shouldBox = true;
                 } else {
                     // Easy AI
                     shouldBox = true;
                 }
+
+                // Random Error: small chance to NOT box even if threshold met (Hesitation)
+                // Reduced for gamblers (they are decisively wrong/right)
+                if (shouldBox && Math.random() < 0.1) shouldBox = false;
 
                 if (shouldBox) {
                     if (this.safetyCarActive || !canDelay) {
@@ -639,15 +791,26 @@ export class RaceEngine {
 
     finishRace() {
         this.isRaceOver = true;
-        // Final Sort: Laps DESC, Time ASC
+
+        // Final Sort: Trust the finishRank assigned at line crossing
         this.drivers.sort((a, b) => {
-            const lapsA = a.lapsCompleted || 0;
-            const lapsB = b.lapsCompleted || 0;
-            if (lapsA !== lapsB) return lapsB - lapsA;
-            return a.finishTime - b.finishTime;
+            // Both Finished: Sort by Rank
+            if (a.hasFinished && b.hasFinished) {
+                return (a.finishRank || 999) - (b.finishRank || 999);
+            }
+            // Finished cars ahead of DNFs
+            if (a.hasFinished) return -1;
+            if (b.hasFinished) return 1;
+
+            // DNFs: Sort by distance covered
+            return b.distance - a.distance;
         });
 
-        this.drivers.forEach((d, i) => d.finishRank = i + 1);
+        // finalize positions
+        this.drivers.forEach((d, i) => {
+            d.finishRank = i + 1;
+            d.position = i + 1;
+        });
 
         if (this.onRaceFinish) this.onRaceFinish(this.drivers);
     }
@@ -688,13 +851,21 @@ export class RaceEngine {
         }
 
         // 2. CROSSOVER ADVICE (Verbose Only)
+        // Reset flag only when it starts raining again
+        if (this.weather.type === 'RAIN') this.crossoverMsgSent = false;
+
         if (this.radioVerbosity === 'VERBOSE' && this.weather.type === 'DRY' && this.trackMoisture > 0.05) {
-            if (this.trackMoisture < 0.35 && this.trackMoisture > 0.34) {
+            if (this.trackMoisture <= 0.35 && !this.crossoverMsgSent) {
+                this.crossoverMsgSent = true; // Latch immediately to prevent looping
+
                 const diff = this.trackMoisture - 0.15;
                 const rate = this.dryingFactor || 0.001;
-                const seconds = diff / rate;
-                const laps = Math.ceil(seconds / this.circuit.baseLapTime);
-                this.sendRadio(`Track is drying. Slick crossover estimated in ~${laps} laps.`);
+
+                if (rate > 0) {
+                    const seconds = diff / rate;
+                    const laps = Math.max(1, Math.ceil(seconds / this.circuit.baseLapTime));
+                    this.sendRadio(`Track is drying. Slick crossover estimated in ~${laps} laps.`);
+                }
             }
         }
 

@@ -2,6 +2,7 @@ import { DRIVERS } from "./data/drivers.js";
 import { CIRCUITS } from "./data/circuits.js";
 import { RaceEngine } from "./engine/RaceEngine.js";
 import { UIManager } from "./ui/UIManager.js";
+import { QualifyingSession } from "./engine/QualifyingSession.js";
 
 const ui = new UIManager();
 let engine = null;
@@ -12,39 +13,57 @@ let gameLoopId = null;
 ui.renderSelectionGrids(DRIVERS, CIRCUITS, startRace);
 
 function startRace(driverId, circuitId, tyreId, difficulty) {
-    console.log("Starting Race:", { driverId, circuitId, tyreId, difficulty });
+    console.log("Starting Session:", { driverId, circuitId, tyreId, difficulty });
     userDriverId = driverId;
     const circuit = CIRCUITS.find(c => c.id === circuitId);
-    if (!circuit) console.error("Circuit not found!", circuitId);
+    if (!circuit) return console.error("Circuit not found!", circuitId);
 
-    engine = new RaceEngine(DRIVERS, circuit, userDriverId, tyreId, difficulty);
-    engine.onUpdate = onGameUpdate;
-    engine.onLapComplete = onLapComplete;
-    engine.onRaceFinish = onRaceFinish;
-    engine.onRadioMessage = (msg) => ui.addMessage(`📻 ${msg}`);
+    // 1. Run Qualifying
+    console.log("Simulating Qualifying...");
+    const qualiResults = QualifyingSession.simulate(DRIVERS, circuit, difficulty);
 
-    // --- WET START CHECK ---
-    const isSlicks = ['SOFT', 'MEDIUM', 'HARD'].includes(tyreId);
-    if (engine.weather.type === 'RAIN' && isSlicks) {
-        // Show Warning
-        ui.showWeatherWarning(
-            () => { // On Switch
-                // Switch user to Inters
-                const me = engine.drivers.find(d => d.id === userDriverId);
-                if (me) {
-                    me.tyre = 'INTER';
-                    ui.addMessage("Strategic Switch: Starting on Intermediates.");
+    // Create Grid Order
+    const gridProps = qualiResults.map(q => {
+        return DRIVERS.find(d => d.id === q.id);
+    });
+
+    // Notify User
+    const userQ = qualiResults.find(q => q.id === userDriverId);
+    const pole = qualiResults[0];
+    const userPos = qualiResults.indexOf(userQ) + 1;
+
+    // Simple Alert for now (as requested "try this first separate")
+    setTimeout(() => {
+        alert(`QUALIFYING RESULTS\n\nPole Position: ${pole.name} (${pole.formattedTime})\nYour Position: P${userPos} (${userQ.formattedTime})\n\nClick OK to Start Race.`);
+
+        // 2. Initialize Engine with Sorted Grid
+        engine = new RaceEngine(gridProps, circuit, userDriverId, tyreId, difficulty);
+        engine.onUpdate = onGameUpdate;
+        engine.onLapComplete = onLapComplete;
+        engine.onRaceFinish = onRaceFinish;
+        engine.onRadioMessage = (msg) => ui.addMessage(`📻 ${msg}`);
+
+        // --- WET START CHECK ---
+        const isSlicks = ['SOFT', 'MEDIUM', 'HARD'].includes(tyreId);
+        if (engine.weather.type === 'RAIN' && isSlicks) {
+            ui.showWeatherWarning(
+                () => { // On Switch
+                    const me = engine.drivers.find(d => d.id === userDriverId);
+                    if (me) {
+                        me.tyre = 'INTER';
+                        ui.addMessage("Strategic Switch: Starting on Intermediates.");
+                    }
+                    beginGameLoop(circuit);
+                },
+                () => { // On Stay
+                    ui.addMessage("Brave Call: Starting on Slicks in the Rain!", true);
+                    beginGameLoop(circuit);
                 }
-                beginGameLoop(circuit);
-            },
-            () => { // On Stay
-                ui.addMessage("Brave Call: Starting on Slicks in the Rain!", true);
-                beginGameLoop(circuit);
-            }
-        );
-    } else {
-        beginGameLoop(circuit);
-    }
+            );
+        } else {
+            beginGameLoop(circuit);
+        }
+    }, 100);
 }
 
 function beginGameLoop(circuit) {

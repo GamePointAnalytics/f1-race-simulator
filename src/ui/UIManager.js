@@ -53,7 +53,7 @@ export class UIManager {
         this.screens[name].classList.add('active');
     }
 
-    renderPostRace(drivers, onRestart) {
+    renderPostRace(drivers, userDriverId, onRestart) {
         this.showScreen('post');
         const podium = document.getElementById('podium-display');
         podium.innerHTML = '';
@@ -94,19 +94,23 @@ export class UIManager {
                 </tr>
             </thead>
             <tbody>
-                ${drivers.map((d, i) => `
-                    <tr>
+                ${drivers.map((d, i) => {
+            const isMe = d.id === userDriverId;
+            const rowStyle = isMe ? 'background: rgba(59, 130, 246, 0.2); font-weight:bold; border-left: 4px solid #3b82f6;' : '';
+            return `
+                    <tr style="${rowStyle}">
                         <td>${i + 1}</td>
                         <td>${d.name}</td>
                         <td style="color:${TEAMS[d.team].color}">${TEAMS[d.team].name}</td>
                         <td class="points-col">${this.getPoints(i + 1) > 0 ? '+' + this.getPoints(i + 1) : ''}</td>
                     </tr>
-                `).join('')}
+                `}).join('')}
             </tbody>
         `;
         podium.appendChild(table);
 
-        document.getElementById('restart-btn').onclick = onRestart;
+        const btn = document.getElementById('restart-btn');
+        if (btn) btn.onclick = onRestart;
     }
 
     getPoints(pos) {
@@ -206,53 +210,84 @@ export class UIManager {
         this.elements.lapCounter.textContent = `Lap 1 / ${totalLaps}`;
 
         // Draw Track
-        // Flip Y to match standard map orientation (Y-up) by transforming the GROUP
         const group = document.getElementById('track-group');
         if (group) {
             group.setAttribute('transform', 'translate(0, 450) scale(1, -1)');
         }
 
-        // Path itself needs no transform now, just data
         this.elements.trackPath.removeAttribute('transform');
         this.elements.trackPath.setAttribute('d', circuitPath);
         this.elements.trackPath.setAttribute('vector-effect', 'non-scaling-stroke');
 
-        // Pit Lane Highlight
-        // Force layout recalc to ensure path length is available
-        // (Usually strictly needed only if we didn't just set 'd')
         const len = this.elements.trackPath.getTotalLength();
         if (len > 0) {
-            let pitD = "";
-            const resolution = 40;
+            // 1. Chequered Finish Line
+            const p0 = this.elements.trackPath.getPointAtLength(0);
+            const p1 = this.elements.trackPath.getPointAtLength(len * 0.005);
 
-            // Segment 1: Last 5% (Pit Entry)
+            // Vector
+            const dx = p1.x - p0.x;
+            const dy = p1.y - p0.y;
+            const mag = Math.sqrt(dx * dx + dy * dy);
+            const nx = -dy / mag;
+            const ny = dx / mag;
+
+            const w = 30; // Thicker
+            const x1 = p0.x - nx * w;
+            const y1 = p0.y - ny * w;
+            const x2 = p0.x + nx * w;
+            const y2 = p0.y + ny * w;
+
+            let sfLine = document.getElementById('sf-line');
+            if (!sfLine) {
+                sfLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                sfLine.id = "sf-line";
+                sfLine.setAttribute("stroke", "white");
+                sfLine.setAttribute("stroke-width", "12"); // Bold 12px
+                sfLine.setAttribute("stroke-dasharray", "8 8");
+                sfLine.setAttribute("vector-effect", "non-scaling-stroke");
+                sfLine.setAttribute("stroke-linecap", "butt");
+                if (group) group.insertBefore(sfLine, this.elements.playerMarker);
+            }
+            sfLine.setAttribute("x1", x1);
+            sfLine.setAttribute("y1", y1);
+            sfLine.setAttribute("x2", x2);
+            sfLine.setAttribute("y2", y2);
+
+            // 2. Pit Lane (Shortened)
+            let pitD = "";
+            const resolution = 20;
+
+            // Entry: 95% - 99%
             for (let i = 0; i <= resolution; i++) {
-                const dist = len * (0.94 + (0.06 * (i / resolution)));
+                const dist = len * (0.95 + (0.04 * (i / resolution)));
                 const p = this.elements.trackPath.getPointAtLength(dist);
                 if (i === 0) pitD += `M ${p.x} ${p.y} `;
                 else pitD += `L ${p.x} ${p.y} `;
             }
 
-            // Segment 2: First 5% (Pit Exit)
+            // Exit: 1% - 5%
+            const dummyP = this.elements.trackPath.getPointAtLength(len * 0.01);
+            pitD += `M ${dummyP.x} ${dummyP.y} `;
+
             for (let i = 0; i <= resolution; i++) {
-                const dist = len * (0.06 * (i / resolution));
+                const dist = len * (0.01 + (0.04 * (i / resolution))); // 1-5%
                 const p = this.elements.trackPath.getPointAtLength(dist);
-                pitD += `L ${p.x} ${p.y} `;
+                if (i === 0) pitD += `L ${p.x} ${p.y} `;
+                else pitD += `L ${p.x} ${p.y} `;
             }
 
-            // Create Path
             let pitPath = document.getElementById('pit-path');
             if (!pitPath) {
                 pitPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 pitPath.id = "pit-path";
                 pitPath.setAttribute("stroke", "#00ffff");
-                pitPath.setAttribute("stroke-width", "8");
+                pitPath.setAttribute("stroke-width", "6");
                 pitPath.setAttribute("stroke-opacity", "0.5");
                 pitPath.setAttribute("fill", "none");
                 pitPath.setAttribute("stroke-linejoin", "round");
                 pitPath.setAttribute("stroke-linecap", "round");
-
-                const group = document.getElementById('track-group');
+                pitPath.setAttribute("vector-effect", "non-scaling-stroke");
                 if (group) group.insertBefore(pitPath, this.elements.playerMarker);
             }
             pitPath.setAttribute('d', pitD);
@@ -288,33 +323,33 @@ export class UIManager {
             const isMe = d.id === userDriverId;
             let gap = '';
 
-            if (d.position === 1) {
-                gap = 'Leader';
-            } else {
-                if (this.showInterval) {
-                    // Interval (Gap to ahead)
-                    const g = d.gapToAhead; // Seconds
-                    gap = (g > 200 || g < 0) ? '>1L' : `+${g.toFixed(1)}s`;
+            // Determine Status/Gap
+            if (d.hasFinished) {
+                if (d.position === 1) {
+                    gap = 'WINNER';
                 } else {
-                    // Gap to Leader
-                    gap = `+${d.gapToLeader.toFixed(1)}s`;
+                    const leader = drivers.find(dr => dr.position === 1);
+                    if (leader && leader.finishTime && d.finishTime) {
+                        const diff = d.finishTime - leader.finishTime;
+                        gap = `+${diff.toFixed(1)}s`;
+                    } else {
+                        gap = 'FIN';
+                    }
+                }
+            } else {
+                // Still Racing
+                if (d.position === 1) {
+                    gap = 'Leader';
+                } else {
+                    if (this.showInterval) {
+                        const g = d.gapToAhead;
+                        gap = (g > 200 || g < 0) ? '>1L' : `+${g.toFixed(1)}s`;
+                    } else {
+                        const g = d.gapToLeader;
+                        gap = `+${g.toFixed(1)}s`;
+                    }
                 }
             }
-
-            // Override if finished (Show actual finish gap relative to leader, or just static)
-            if (d.hasFinished && d.position > 1) {
-                // We don't have easy access to leader finish time here unless we find P1.
-                // UIManager optimization: Pass P1 explicitly? Or just finding it.
-                const leader = drivers.find(dr => dr.position === 1);
-                if (leader && leader.finishTime && d.finishTime) {
-                    const timeDiff = d.finishTime - leader.finishTime;
-                    gap = `+${timeDiff.toFixed(1)}s`;
-                } else if (d.hasFinished) {
-                    gap = 'FIN';
-                }
-            }
-            // Logic for Leader finish
-            if (d.position === 1 && d.hasFinished) gap = 'WINNER';
 
             const teamColor = TEAMS[d.team].color;
             const pitStatus = d.isInPit ? ' [PIT]' : '';

@@ -1,14 +1,14 @@
 export const TEAMS = {
-    RED_BULL: { name: "Red Bull Racing", color: "#3671C6", performance: 0.98 },
-    MCLAREN: { name: "McLaren", color: "#FF8000", performance: 0.99 },
-    FERRARI: { name: "Ferrari", color: "#F91536", performance: 0.99 },
-    MERCEDES: { name: "Mercedes", color: "#6CD3BF", performance: 0.97 },
-    ASTON_MARTIN: { name: "Aston Martin", color: "#229971", performance: 0.94 },
-    RB: { name: "RB", color: "#6692FF", performance: 0.92 },
-    HAAS: { name: "Haas", color: "#B6BABD", performance: 0.91 },
-    ALPINE: { name: "Alpine", color: "#FF87BC", performance: 0.90 }, // Keeping pink mainly
-    WILLIAMS: { name: "Williams", color: "#64C4FF", performance: 0.90 },
-    SAUBER: { name: "Sauber", color: "#52E252", performance: 0.88 }
+    RED_BULL: { name: "Red Bull Racing", color: "#3671C6", performance: 0.985 },
+    MCLAREN: { name: "McLaren", color: "#FF8000", performance: 0.995 }, // Explicit Clear P1
+    FERRARI: { name: "Ferrari", color: "#F91536", performance: 0.990 },
+    MERCEDES: { name: "Mercedes", color: "#6CD3BF", performance: 0.975 },
+    ASTON_MARTIN: { name: "Aston Martin", color: "#229971", performance: 0.940 },
+    HAAS: { name: "Haas", color: "#B6BABD", performance: 0.920 }, // Moving up slightly
+    RB: { name: "RB", color: "#6692FF", performance: 0.915 },
+    WILLIAMS: { name: "Williams", color: "#64C4FF", performance: 0.910 },
+    ALPINE: { name: "Alpine", color: "#FF87BC", performance: 0.890 }, // Clear Bottom 2
+    SAUBER: { name: "Sauber", color: "#52E252", performance: 0.875 } // Distinctly Last
 };
 
 export const DRIVERS = [
