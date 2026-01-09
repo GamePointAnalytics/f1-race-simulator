@@ -1,7 +1,7 @@
 export const TYRE_COMPOUNDS = {
-    SOFT: { name: "Soft", color: "#FF3333", speedParams: { base: -0.6, deg: 0.12 }, life: 30 }, // Fast, Moderate Deg
+    SOFT: { name: "Soft", color: "#FF3333", speedParams: { base: -0.6, deg: 0.08 }, life: 35 }, // Fast, Moderate Deg
     MEDIUM: { name: "Medium", color: "#FFFF33", speedParams: { base: 0.2, deg: 0.05 }, life: 40 }, // Balanced
-    HARD: { name: "Hard", color: "#FFFFFF", speedParams: { base: 0.8, deg: 0.02 }, life: 65 }, // Durable
+    HARD: { name: "Hard", color: "#FFFFFF", speedParams: { base: 1.5, deg: 0.02 }, life: 65 }, // Durable
     INTER: { name: "Inter", color: "#33CC33", speedParams: { base: 6.0, deg: 0.05 }, life: 30 },
     WET: { name: "Wet", color: "#3333FF", speedParams: { base: 12.0, deg: 0.05 }, life: 30 }
 };
@@ -78,5 +78,29 @@ export const CIRCUITS = [
         pitTimeLoss: 26.0,
         drsZones: [[0.05, 0.2]],
         path: "M 200 300 Q 250 350 300 300 T 400 300 T 500 300 L 600 300 L 700 200 L 600 100 L 400 100 L 300 150 L 200 200 Z"
+    },
+    {
+        id: "barcelona",
+        name: "Barcelona",
+        country: "Spain",
+        laps: 66,
+        baseLapTime: 78.0,
+        rainProbability: 0.05,
+        tyreWearFactor: 1.4,
+        pitTimeLoss: 22.0,
+        drsZones: [[0.0, 0.15], [0.45, 0.55]],
+        path: "M 100 300 L 450 300 L 500 250 L 550 200 L 600 150 L 500 100 L 300 100 L 200 150 L 150 250 Z"
+    },
+    {
+        id: "barcelona_test",
+        name: "Barcelona (Test)",
+        country: "Spain",
+        laps: 5,
+        baseLapTime: 78.0,
+        rainProbability: 0.05,
+        tyreWearFactor: 1.4,
+        pitTimeLoss: 22.0,
+        drsZones: [[0.0, 0.15], [0.45, 0.55]],
+        path: "M 100 300 L 450 300 L 500 250 L 550 200 L 600 150 L 500 100 L 300 100 L 200 150 L 150 250 Z"
     }
 ];

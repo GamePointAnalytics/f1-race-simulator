@@ -215,7 +215,48 @@ export class UIManager {
         // Path itself needs no transform now, just data
         this.elements.trackPath.removeAttribute('transform');
         this.elements.trackPath.setAttribute('d', circuitPath);
-        this.elements.trackPath.setAttribute('vector-effect', 'non-scaling-stroke'); // Keep crisp line
+        this.elements.trackPath.setAttribute('vector-effect', 'non-scaling-stroke');
+
+        // Pit Lane Highlight
+        // Force layout recalc to ensure path length is available
+        // (Usually strictly needed only if we didn't just set 'd')
+        const len = this.elements.trackPath.getTotalLength();
+        if (len > 0) {
+            let pitD = "";
+            const resolution = 40;
+
+            // Segment 1: Last 5% (Pit Entry)
+            for (let i = 0; i <= resolution; i++) {
+                const dist = len * (0.94 + (0.06 * (i / resolution)));
+                const p = this.elements.trackPath.getPointAtLength(dist);
+                if (i === 0) pitD += `M ${p.x} ${p.y} `;
+                else pitD += `L ${p.x} ${p.y} `;
+            }
+
+            // Segment 2: First 5% (Pit Exit)
+            for (let i = 0; i <= resolution; i++) {
+                const dist = len * (0.06 * (i / resolution));
+                const p = this.elements.trackPath.getPointAtLength(dist);
+                pitD += `L ${p.x} ${p.y} `;
+            }
+
+            // Create Path
+            let pitPath = document.getElementById('pit-path');
+            if (!pitPath) {
+                pitPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                pitPath.id = "pit-path";
+                pitPath.setAttribute("stroke", "#00ffff");
+                pitPath.setAttribute("stroke-width", "8");
+                pitPath.setAttribute("stroke-opacity", "0.5");
+                pitPath.setAttribute("fill", "none");
+                pitPath.setAttribute("stroke-linejoin", "round");
+                pitPath.setAttribute("stroke-linecap", "round");
+
+                const group = document.getElementById('track-group');
+                if (group) group.insertBefore(pitPath, this.elements.playerMarker);
+            }
+            pitPath.setAttribute('d', pitD);
+        }
     }
 
     updateTrackMap(driver, trackLength) {

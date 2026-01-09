@@ -21,6 +21,7 @@ function startRace(driverId, circuitId, tyreId, difficulty) {
     engine.onUpdate = onGameUpdate;
     engine.onLapComplete = onLapComplete;
     engine.onRaceFinish = onRaceFinish;
+    engine.onRadioMessage = (msg) => ui.addMessage(`📻 ${msg}`);
 
     // --- WET START CHECK ---
     const isSlicks = ['SOFT', 'MEDIUM', 'HARD'].includes(tyreId);
@@ -63,7 +64,10 @@ function beginGameLoop(circuit) {
     });
 }
 
-function onGameUpdate(drivers, laps, temp, weather) {
+function onGameUpdate(drivers, laps, temp, weather, scActive) {
+    const scBanner = document.getElementById('sc-banner');
+    if (scBanner) scBanner.style.display = scActive ? 'block' : 'none';
+
     ui.updateLeaderboard(drivers, userDriverId);
     ui.elements.lapCounter.textContent = `Lap ${laps} / ${engine.laps}`;
 
@@ -109,7 +113,22 @@ function onGameUpdate(drivers, laps, temp, weather) {
 
 function onLapComplete(driver) {
     if (driver.id === userDriverId) {
-        ui.addMessage(`Lap ${driver.lap} Complete. Gap to leader: ${driver.gapToLeader.toFixed(1)}s`);
+        let msg = `Lap ${driver.lap} Complete.`;
+
+        if (driver.position === 1) {
+            msg += " You are leading the race.";
+        } else {
+            // Find car ahead
+            const ahead = engine.drivers.find(d => d.position === driver.position - 1);
+            if (ahead) {
+                const lastName = ahead.name.split(' ').pop();
+                const gap = driver.gapToAhead.toFixed(1);
+                msg += ` Gap to ${lastName}: +${gap}s`;
+            } else {
+                msg += ` Gap to Leader: +${driver.gapToLeader.toFixed(1)}s`;
+            }
+        }
+        ui.addMessage(msg);
     }
 }
 
@@ -136,6 +155,23 @@ function setupControls() {
             ui.addMessage(`Mode switched to: ${driver.mode}`, true);
         };
     });
+
+    // Radio Toggle
+    const radioBtn = document.getElementById('radio-toggle-btn');
+    if (radioBtn) {
+        radioBtn.onclick = () => {
+            const txt = document.getElementById('radio-mode-text');
+            if (engine.radioVerbosity === 'VERBOSE') {
+                engine.radioVerbosity = 'MINIMAL';
+                if (txt) txt.textContent = 'MIN';
+                ui.addMessage("Radio: Minimal Mode (Critical Only)");
+            } else {
+                engine.radioVerbosity = 'VERBOSE';
+                if (txt) txt.textContent = 'MAX';
+                ui.addMessage("Radio: Verbose Mode (Strategy & Weather)");
+            }
+        };
+    }
 
     const boxBtn = document.getElementById('box-btn');
     const pitOptions = document.getElementById('pit-options');

@@ -45,16 +45,25 @@
         </div>
 
         <div id="race-screen" class="screen hidden">
+            <div id="sc-banner"
+                style="display:none; background:#ffcc00; color:#000; text-align:center; padding:10px; font-weight:900; letter-spacing:2px; width:100%;">
+                ⚠ SAFETY CAR DEPLOYED ⚠</div>
             <header class="race-header">
                 <div class="track-info">
                     <h2 id="race-circuit-name">Monza</h2>
                     <span id="race-lap-counter">Lap 1 / 53</span>
                 </div>
                 <div class="weather-widget" style="flex-direction:column; align-items:flex-end;">
-                    <div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button id="radio-toggle-btn" style="background:none; border:none; color:#ddd; cursor:pointer;"
+                            title="Radio Settings">
+                            📻 <span id="radio-mode-text" style="font-size:0.8em; font-weight:bold;">MAX</span>
+                        </button>
                         <span id="weather-icon">☀️</span>
                         <span id="weather-text">Dry</span>
                         <span id="track-temp" style="margin-left:15px; font-weight:bold; color:#ff9f43;">--°C</span>
+                    </div>
+                    <div id="weather-forecast" style="font-size:0.8em; color:#ddd; margin-top:4px;">Forecast: Stable
                     </div>
                     <div id="weather-forecast" style="font-size:0.8em; color:#ddd; margin-top:4px;">Forecast: Stable
                     </div>
