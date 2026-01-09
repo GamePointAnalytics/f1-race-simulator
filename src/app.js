@@ -11,22 +11,46 @@ let gameLoopId = null;
 // Initial Setup
 ui.renderSelectionGrids(DRIVERS, CIRCUITS, startRace);
 
-function startRace(driverId, circuitId, tyreId) {
+function startRace(driverId, circuitId, tyreId, difficulty) {
+    console.log("Starting Race:", { driverId, circuitId, tyreId, difficulty });
     userDriverId = driverId;
     const circuit = CIRCUITS.find(c => c.id === circuitId);
+    if (!circuit) console.error("Circuit not found!", circuitId);
 
-    engine = new RaceEngine(DRIVERS, circuit, userDriverId, tyreId);
+    engine = new RaceEngine(DRIVERS, circuit, userDriverId, tyreId, difficulty);
     engine.onUpdate = onGameUpdate;
     engine.onLapComplete = onLapComplete;
     engine.onRaceFinish = onRaceFinish;
+
+    // --- WET START CHECK ---
+    const isSlicks = ['SOFT', 'MEDIUM', 'HARD'].includes(tyreId);
+    if (engine.weather.type === 'RAIN' && isSlicks) {
+        // Show Warning
+        ui.showWeatherWarning(
+            () => { // On Switch
+                // Switch user to Inters
+                const me = engine.drivers.find(d => d.id === userDriverId);
+                if (me) {
+                    me.tyre = 'INTER';
+                    ui.addMessage("Strategic Switch: Starting on Intermediates.");
+                }
+                beginGameLoop(circuit);
+            },
+            () => { // On Stay
+                ui.addMessage("Brave Call: Starting on Slicks in the Rain!", true);
+                beginGameLoop(circuit);
+            }
+        );
+    } else {
+        beginGameLoop(circuit);
+    }
+}
+
+function beginGameLoop(circuit) {
     engine.start();
-
     ui.initRaceView(circuit.name, circuit.laps, circuit.path);
-
-    // Bind Controls
     setupControls();
 
-    // Start Loop
     let lastTime = performance.now();
     gameLoopId = requestAnimationFrame(function loop(now) {
         const dt = (now - lastTime) / 1000;
@@ -39,11 +63,42 @@ function startRace(driverId, circuitId, tyreId) {
     });
 }
 
-function onGameUpdate(drivers, currentLap) {
+function onGameUpdate(drivers, laps, temp, weather) {
     ui.updateLeaderboard(drivers, userDriverId);
-    ui.elements.lapCounter.textContent = `Lap ${currentLap} / ${engine.laps}`;
+    ui.elements.lapCounter.textContent = `Lap ${laps} / ${engine.laps}`;
 
-    const startLights = document.getElementById('race-circuit-name'); // temp hack locator
+    // Update Temp
+    if (temp) {
+        const el = document.getElementById('track-temp');
+        if (el) {
+            el.textContent = `${temp.toFixed(0)}°C`;
+            // Color coding
+            if (temp > 30) el.style.color = '#ef4444'; // Hot
+            else if (temp < 20) el.style.color = '#3b82f6'; // Cold
+            else el.style.color = '#ff9f43'; // Normal
+        }
+    }
+
+    // Update Weather
+    if (weather) {
+        const icon = document.getElementById('weather-icon');
+        const text = document.getElementById('weather-text');
+        const forecastEl = document.getElementById('weather-forecast');
+
+        if (icon && text) {
+            if (weather.type === 'RAIN') {
+                icon.textContent = '🌧️';
+                text.textContent = 'Rain';
+            } else {
+                icon.textContent = '☀️';
+                text.textContent = 'Dry';
+            }
+        }
+
+        if (forecastEl) {
+            forecastEl.textContent = engine.getForecastText();
+        }
+    }
 
     const me = drivers.find(d => d.id === userDriverId);
     if (me) {
@@ -60,7 +115,10 @@ function onLapComplete(driver) {
 
 function onRaceFinish(results) {
     cancelAnimationFrame(gameLoopId);
-    ui.renderPostRace(results, userDriverId, () => location.reload());
+    ui.renderPostRace(results, userDriverId, () => {
+        console.log("Returning to Garage...");
+        window.location.reload();
+    });
 }
 
 function setupControls() {

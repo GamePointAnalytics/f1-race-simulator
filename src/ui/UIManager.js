@@ -12,6 +12,7 @@ export class UIManager {
             driverGrid: document.getElementById('driver-grid'),
             circuitGrid: document.getElementById('circuit-grid'),
             tyreGrid: document.getElementById('tyre-grid'),
+            difficultyGrid: document.getElementById('difficulty-grid'),
             startBtn: document.getElementById('start-race-btn'),
             leaderboard: document.getElementById('leaderboard-list'),
             messages: document.getElementById('message-log'),
@@ -19,6 +20,7 @@ export class UIManager {
             // Telemetry
             tyreLabel: document.getElementById('telemetry-tyre'),
             wearBar: document.getElementById('telemetry-wear'),
+            ersBar: document.getElementById('telemetry-ers'),
 
             // Header
             lapCounter: document.getElementById('race-lap-counter'),
@@ -29,7 +31,7 @@ export class UIManager {
             playerMarker: document.getElementById('player-marker')
         };
 
-        this.selection = { driverId: null, circuitId: null, tyreId: 'SOFT' }; // Default to Soft if needed, but we'll force selection
+        this.selection = { driverId: null, circuitId: null, tyreId: 'SOFT', difficulty: 'HARD' }; // Default Hard
         this.showInterval = false; // Toggle state
 
         // Bind Toggle
@@ -149,8 +151,8 @@ export class UIManager {
             this.elements.circuitGrid.appendChild(card);
         });
 
-        // Render Tyres (Soft, Medium, Hard only)
-        const startTyres = ['SOFT', 'MEDIUM', 'HARD'];
+        // Render Tyres (Soft, Medium, Hard, Inter)
+        const startTyres = ['SOFT', 'MEDIUM', 'HARD', 'INTER'];
         this.elements.tyreGrid.innerHTML = '';
         startTyres.forEach(t => {
             const card = document.createElement('div');
@@ -167,12 +169,34 @@ export class UIManager {
             };
             this.elements.tyreGrid.appendChild(card);
         });
+
+        // Render Difficulty
+        const difficulties = ['EASY', 'HARD'];
+        this.elements.difficultyGrid.innerHTML = '';
+        difficulties.forEach(d => {
+            const card = document.createElement('div');
+            card.className = 'track-card'; // Reuse style
+            card.style.flex = '1';
+            card.innerHTML = `
+                <div style="font-weight:bold">${d}</div>
+                <div style="font-size:0.8em">${d === 'HARD' ? 'Smart AI' : 'Standard AI'}</div>
+            `;
+            if (d === this.selection.difficulty) card.classList.add('selected');
+
+            card.onclick = () => {
+                this.elements.difficultyGrid.querySelectorAll('.track-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                this.selection.difficulty = d;
+                this.checkStartReady(onSelect);
+            };
+            this.elements.difficultyGrid.appendChild(card);
+        });
     }
 
     checkStartReady(onSelect) {
         if (this.selection.driverId && this.selection.circuitId && this.selection.tyreId) {
             this.elements.startBtn.disabled = false;
-            this.elements.startBtn.onclick = () => onSelect(this.selection.driverId, this.selection.circuitId, this.selection.tyreId);
+            this.elements.startBtn.onclick = () => onSelect(this.selection.driverId, this.selection.circuitId, this.selection.tyreId, this.selection.difficulty);
         }
     }
 
@@ -182,7 +206,16 @@ export class UIManager {
         this.elements.lapCounter.textContent = `Lap 1 / ${totalLaps}`;
 
         // Draw Track
+        // Flip Y to match standard map orientation (Y-up) by transforming the GROUP
+        const group = document.getElementById('track-group');
+        if (group) {
+            group.setAttribute('transform', 'translate(0, 450) scale(1, -1)');
+        }
+
+        // Path itself needs no transform now, just data
+        this.elements.trackPath.removeAttribute('transform');
         this.elements.trackPath.setAttribute('d', circuitPath);
+        this.elements.trackPath.setAttribute('vector-effect', 'non-scaling-stroke'); // Keep crisp line
     }
 
     updateTrackMap(driver, trackLength) {
@@ -195,7 +228,14 @@ export class UIManager {
         // Get Point
         const path = this.elements.trackPath;
         const len = path.getTotalLength();
-        const point = path.getPointAtLength(progress * len);
+        let dist = progress * len;
+
+        if (!Number.isFinite(dist)) {
+            // Guard against NaN distance (e.g. invalid track params)
+            dist = 0;
+        }
+
+        const point = path.getPointAtLength(dist);
 
         this.elements.playerMarker.setAttribute('cx', point.x);
         this.elements.playerMarker.setAttribute('cy', point.y);
@@ -260,6 +300,17 @@ export class UIManager {
         if (wearPct < 30) color = '#ef4444'; // Red
         this.elements.wearBar.style.backgroundColor = color;
 
+        // ERS
+        const ersPct = userDriver.battery;
+        this.elements.ersBar.style.width = `${ersPct}%`;
+
+        let ersColor = '#06b6d4'; // Cyan
+        if (ersPct < 20) ersColor = '#ef4444'; // Red (Low)
+        // Check mode from userDriver, not 'driver' variable which isn't defined here
+        if (userDriver.mode === 'PUSH') ersColor = '#a855f7';
+
+        this.elements.ersBar.style.backgroundColor = ersColor;
+
         this.elements.tyreLabel.textContent = userDriver.tyre;
         this.elements.tyreLabel.style.color = this.getTyreColor(userDriver.tyre);
     }
@@ -280,5 +331,55 @@ export class UIManager {
             WET: '#3333FF'
         };
         return map[tyre] || '#FFF';
+    }
+
+    showWeatherWarning(onSwitch, onStay) {
+        // Create Modal Overlay
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.background = 'rgba(0,0,0,0.85)';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.zIndex = '9999';
+
+        const box = document.createElement('div');
+        box.style.background = '#1e293b';
+        box.style.padding = '2rem';
+        box.style.borderRadius = '12px';
+        box.style.border = '2px solid #ef4444';
+        box.style.textAlign = 'center';
+        box.style.maxWidth = '400px';
+
+        box.innerHTML = `
+            <h2 style="color:#ef4444; margin-top:0;">⚠️ WEATHER WARNING</h2>
+            <p style="font-size:1.1rem; margin: 1rem 0;">
+                It is currently raining at the track! 🌧️
+            </p>
+            <p style="margin-bottom: 2rem; color: #94a3b8;">
+                You have selected Slick tyres. It is highly recommended to start on Intermediates.
+            </p>
+            <div style="display:flex; gap:1rem; justify-content:center;">
+                <button id="ww-switch" style="background:#3b82f6; color:white; padding:0.8rem 1.5rem; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Switch to Inters</button>
+                <button id="ww-stay" style="background:transparent; border:1px solid #ef4444; color:#ef4444; padding:0.8rem 1.5rem; border-radius:6px; cursor:pointer;">Risk It (Stay)</button>
+            </div>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        document.getElementById('ww-switch').onclick = () => {
+            document.body.removeChild(overlay);
+            onSwitch();
+        };
+
+        document.getElementById('ww-stay').onclick = () => {
+            document.body.removeChild(overlay);
+            onStay();
+        };
     }
 }

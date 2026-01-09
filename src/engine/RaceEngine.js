@@ -1,23 +1,26 @@
 import { TYRE_COMPOUNDS } from "../data/circuits.js";
+import { TEAMS } from "../data/drivers.js";
 
 export class RaceEngine {
-    constructor(drivers, circuit, userDriverId, userStartTyre) {
+    constructor(drivers, circuit, userDriverId, userStartTyre, difficulty = 'HARD') {
         this.circuit = circuit;
+        this.difficulty = difficulty;
         this.drivers = drivers.map(d => this.initDriver(d, userDriverId, userStartTyre));
         this.laps = circuit.laps;
+        this.laps = circuit.laps;
         this.currentLap = 0; // Leading car lap
-        this.weather = { type: 'DRY', rainIntensity: 0.0 }; // 0.0 to 1.0
-        // Random Track Temp (15C to 40C)
-        this.trackTemp = Math.floor(Math.random() * 25) + 15;
-        this.isRaceOver = false;
-        this.chequeredFlag = false;
-        this.nextFinishRank = 1;
 
-        // Game Loop State
-        this.time = 0;
-        this.leaderDistance = 0;
+        // Physics State
+        this.trackTemp = 30 - (circuit.rainProbability * 10) + (Math.random() * 5);
+        this.trackMoisture = 0.0;
+        this.gameTime = 0; // Seconds since start
 
-        // Events
+        // Weather System
+        this.weather = { type: 'DRY', rainIntensity: 0.0 };
+        this.forecast = []; // Array of weather blocks
+        this.currentWeatherBlockIndex = 0;
+        this.generateForecast();
+
         this.onUpdate = null;
         this.onLapComplete = null;
         this.onRaceFinish = null;
@@ -46,6 +49,7 @@ export class RaceEngine {
             tyreAge: 0, // Laps
             tyreHealth: 1.0, // 100%
             fuel: 100, // kg (not fully used yet)
+            battery: 100, // ERS Percentage
 
             // Strategy State
             mode: 'BALANCED', // PUSH, BALANCED, CONSERVE
@@ -54,6 +58,56 @@ export class RaceEngine {
             isInPit: false,
             pitTimer: 0
         };
+    }
+
+    generateForecast() {
+        const estRaceTime = this.laps * this.circuit.baseLapTime;
+        let timeCovered = 0;
+        let isRaining = Math.random() < (this.circuit.rainProbability * 1.5); // Initial state
+
+        if (isRaining) this.trackMoisture = 0.5;
+
+        while (timeCovered < estRaceTime + 600) { // Cover race + buffer
+            const duration = 600 + Math.random() * 1200; // 10-30 mins blocks
+
+            const block = {
+                type: isRaining ? 'RAIN' : 'DRY',
+                rainIntensity: isRaining ? (0.2 + Math.random() * 0.6) : 0.0,
+                startTime: timeCovered,
+                endTime: timeCovered + duration
+            };
+
+            this.forecast.push(block);
+            timeCovered += duration;
+
+            // Flip for next block based on probability
+            if (!isRaining) {
+                if (Math.random() < this.circuit.rainProbability * 2.0) isRaining = true;
+            } else {
+                if (Math.random() < 0.7) isRaining = false;
+            }
+        }
+
+        // Set initial
+        this.weather = {
+            type: this.forecast[0].type,
+            rainIntensity: this.forecast[0].rainIntensity
+        };
+        console.log("Weather Forecast Generated:", this.forecast);
+    }
+
+    getForecastText() {
+        // Find next change
+        const currentBlock = this.forecast[this.currentWeatherBlockIndex];
+        const nextBlock = this.forecast[this.currentWeatherBlockIndex + 1];
+
+        if (!nextBlock) return "Stable Conditions";
+
+        const timeToChange = nextBlock.startTime - this.gameTime;
+        const mins = Math.ceil(timeToChange / 60);
+
+        if (mins <= 0) return "Transitioning...";
+        return `${nextBlock.type} expected in ${mins} min`;
     }
 
     start() {
@@ -72,13 +126,10 @@ export class RaceEngine {
         this.time += dt;
 
         // Sort drivers by distance to determine position
-        // This is simplified; in reality position checks happen at checkpoints.
-        // We will just keep them sorted for the leaderboard.
-        // Sort drivers: Finished drivers by Rank, Active by Distance
         const activeDrivers = [...this.drivers];
         activeDrivers.sort((a, b) => {
             if (a.hasFinished && b.hasFinished) return a.finishRank - b.finishRank;
-            if (a.hasFinished) return -1; // a finished, b didn't -> a is ahead
+            if (a.hasFinished) return -1;
             if (b.hasFinished) return 1;
             return b.distance - a.distance;
         });
@@ -97,7 +148,7 @@ export class RaceEngine {
         }
 
         this.leaderDistance = leader.distance;
-        this.currentLap = Math.min(Math.floor(leader.distance / this.getTrackLength()) + 1, this.laps); // Cap at max laps
+        this.currentLap = Math.min(Math.floor(leader.distance / this.getTrackLength()) + 1, this.laps);
 
         // Update each driver
         this.drivers.forEach(driver => {
@@ -113,12 +164,11 @@ export class RaceEngine {
             }
 
             // Move Car
-            // Calculate Gap to Car Ahead
+            // Calculate Gap
             let gapToAhead = 999;
             if (driver.position > 1) {
                 const carAhead = activeDrivers.find(d => d.position === driver.position - 1);
                 if (carAhead) {
-                    // Gap in seconds approx
                     gapToAhead = (carAhead.distance - driver.distance) / 60.0;
                 }
             }
@@ -139,153 +189,242 @@ export class RaceEngine {
             }
 
             // Finish Line Check (If Flag is out)
-            // If flag is out (leader already finished), ANYONE crossing line finishes race
-            // regardless of their lap count (lapped cars finish a lap down).
             const isCrossing = currentLapCount > oldLapCount;
             if (this.chequeredFlag && isCrossing) {
                 if (!driver.hasFinished) {
                     driver.hasFinished = true;
                     driver.finishRank = this.nextFinishRank++;
-                    driver.position = driver.finishRank; // Lock position
+                    driver.position = driver.finishRank;
                     driver.finishTime = this.time;
-                    driver.lapsCompleted = currentLapCount; // Store final laps
+                    driver.lapsCompleted = currentLapCount;
                 }
                 return;
             }
 
-            // Pit Entry (Only if NOT last lap)
+            // Pit Entry
             if (driver.boxThisLap && currentLapCount > oldLapCount && !this.chequeredFlag && currentLapCount < this.laps) {
-                // He actually crossed the line, but let's say pit entry is right before line.
-                // We'll teleport him to pit state.
                 this.enterPit(driver);
             }
 
             // Calculate Gap
-            // Gap = (LeaderDist - DriverDist) / AvgSpeed
-            // Very rough approx
-            driver.gapToLeader = (this.leaderDistance - driver.distance) / 60.0; // Assume 60m/s avg
+            driver.gapToLeader = (this.leaderDistance - driver.distance) / 60.0;
 
-            // Tyre Wear
-            this.applyTyreWear(driver, dt);
+            // Tyre Wear & ERS
+            this.updateCarPhysics(driver, dt);
         });
 
         // Update positions array
+        // Update positions array
         activeDrivers.forEach((d, i) => d.position = i + 1);
 
-        if (this.onUpdate) this.onUpdate(activeDrivers, this.currentLap, this.trackTemp);
+        this.gameTime += dt;
+
+        // --- WEATHER SCHEDULE UPDATE ---
+        const currentBlock = this.forecast[this.currentWeatherBlockIndex];
+
+        // Check if block finished
+        if (currentBlock && this.gameTime >= currentBlock.endTime) {
+            // Advance Block
+            if (this.currentWeatherBlockIndex < this.forecast.length - 1) {
+                this.currentWeatherBlockIndex++;
+                const newBlock = this.forecast[this.currentWeatherBlockIndex];
+
+                this.weather.type = newBlock.type;
+                this.weather.rainIntensity = newBlock.rainIntensity;
+
+                if (newBlock.type === 'DRY') {
+                    // Start Drying Logic
+                    // Calculate drying factor similar to before
+                    let targetLaps = 3 + Math.random() * 4;
+                    targetLaps -= (this.trackTemp - 20) * 0.1;
+                    if (targetLaps < 2) targetLaps = 2;
+                    const dryTime = targetLaps * this.circuit.baseLapTime;
+                    this.dryingFactor = 1.0 / dryTime;
+                }
+            }
+        }
+
+        // --- TRACK TEMP DRIFT ---
+        if (this.weather.type === 'RAIN') {
+            if (this.trackTemp > 18) this.trackTemp -= dt * 0.05;
+        } else {
+            // Drifts up/down slightly
+            if (Math.random() < 0.01) this.trackTemp += (Math.random() - 0.5);
+            if (this.trackTemp < 20) this.trackTemp += 0.01;
+        }
+
+        // --- MOISTURE SIMULATION ---
+        if (this.weather.type === 'RAIN') {
+            const wettingRate = 0.002 + (this.weather.rainIntensity * 0.005);
+            this.trackMoisture += wettingRate * dt;
+            if (this.trackMoisture > 1.0) this.trackMoisture = 1.0;
+        } else {
+            // Drying
+            const rate = this.dryingFactor || 0.001;
+            this.trackMoisture -= rate * dt;
+            if (this.trackMoisture < 0.0) this.trackMoisture = 0.0;
+        }
+
+        if (this.onUpdate) this.onUpdate(activeDrivers, this.currentLap, this.trackTemp, this.weather);
     }
 
     calculateSpeed(driver, gapToAhead) {
-        // Base Speed (m/s)
-        // Avg F1 track ~5000m. ~80s lap. => ~62m/s.
-        const baseSpeed = this.getTrackLength() / this.circuit.baseLapTime;
+        // Base Speed
+        let baseSpeed = this.getTrackLength() / this.circuit.baseLapTime;
+        if (!Number.isFinite(baseSpeed)) baseSpeed = 50.0; // Fallback to avoid NaN
 
-        // Driver Skill Mod (Reduced impact for tighter racing)
-        // Range 80-99. Delta 19. 19 * 0.05 = 0.95% variance (~0.8s/lap)
-        const skillMod = (driver.speed - 90) * 0.08; // Increased slightly from 0.05
+        // --- TEAM PERFORMANCE ---
+        const teamData = TEAMS[driver.team];
+        const teamPerf = teamData ? teamData.performance : 0.95;
+        // Range 0.88 to 0.99. Mid 0.93.
+        // Scale to % modifier. 
+        // 0.99 -> +0.8%. 0.88 -> -0.8%.
+        // Spread ~1.6% (approx 1.3s lap time diff from car alone).
+        let teamMod = (teamPerf - 0.94) * 15;
 
-        // Tyre Mod
-        // Wear effect: Max 1.5s drop off
-        const wearPenalty = (1.0 - driver.tyreHealth) * 2.0; // Higher penalty for wear
+        // --- DRIVER SKILL ---
+        // Range 80-99. 
+        // 99 -> +0.36%. 80 -> -0.4%.
+        // Spread ~0.8%. (approx 0.6s lap time diff from driver).
+        let skillMod = (driver.speed - 90) * 0.04; // Reduced from 0.08
 
-        // Mode Mod
-        let modeMod = 0;
-        if (driver.mode === 'PUSH') modeMod = 1.2; // Reduced from 1.5
-        if (driver.mode === 'CONSERVE') modeMod = -1.2;
-
-        // DRS / Slipstream (If within 1s AND in DRS Zone)
-        let drsMod = 0;
-
-        // Calculate Lap Progress (0.0 - 1.0)
-        const trackLen = this.getTrackLength();
-        const progress = (driver.distance % trackLen) / trackLen;
-
-        let inDrsZone = false;
-        if (this.circuit.drsZones) {
-            inDrsZone = this.circuit.drsZones.some(zone => {
-                // Simplified: just standard ranges for now.
-                return progress >= zone[0] && progress <= zone[1];
-            });
-        } else {
-            inDrsZone = true;
-        }
-
-        let aeroMod = 0;
-
-        if (gapToAhead < 1.0) {
-            if (inDrsZone) {
-                drsMod = 2.0; // Reduced from 3.5 to stabilize overtakes
-            } else {
-                // Dirty Air: Drag penalty when close but no DRS
-                aeroMod = -0.5;
-            }
-        } else if (gapToAhead < 0.8) {
-            // Slipstream (if very close) but logic above handles < 1.0
-            // Let's leave slipstream as implied by reduced Aero drag in reality? 
-            // In F1, corners = dirty air (bad), straights = tow (good).
-            // Simplified: No DRS zone = dirty air penalty in corners.
-        }
-
-        // Random Fluctuation (Consistency check)
-        // Consistency 80-99. 
-        // high consistency = low random variance (e.g. +/- 0.1%)
-        // low consistency = high random variance (e.g. +/- 0.5%)
-        const variance = (100 - driver.consistency) * 0.05; // e.g. (100-80)*0.02 = 0.4%
-        const randomPace = (Math.random() - 0.5) * variance;
-
-        // Tyre Base Delta (converted to speed factor approx)
-        // Hard is slower (positive base). Soft is faster (0 base).
-        // 1.0s lap time diff on 80s lap is 1.25%.
+        // --- TYRE BASE ---
         const tyre = TYRE_COMPOUNDS[driver.tyre];
         let tyrePaceDelta = -tyre.speedParams.base;
 
-        // Temperature Performance Penalty (Hard tyres struggle in cold < 20C)
-        if (driver.tyre === 'HARD' && this.trackTemp < 20) {
-            // e.g. at 10C, penalty is severe. at 19C, mild.
-            const coldFactor = (20 - this.trackTemp) * 0.1; // 0.1% per degree -> small speed loss
-            tyrePaceDelta -= coldFactor;
+        // --- RAIN EQUALIZER ---
+        // In Rain, Car matters less, Skill matters less (chaos/grip limit).
+        if (this.weather.type === 'RAIN') {
+            teamMod *= 0.3; // Car advantage neutralized
+            skillMod *= 0.5; // Driver advantage reduced (hard to drive for everyone)
         }
 
-        const totalModPct = (skillMod + tyrePaceDelta + modeMod + drsMod + aeroMod - (wearPenalty * 10) + randomPace);
+        // --- PENALTIES & PHYSICS ---
+        // Tyre Wear
+        const wearPenalty = (1.0 - driver.tyreHealth) * 2.0;
+
+        // Mode
+        // Mode & ERS
+        let modeMod = 0;
+        if (driver.mode === 'PUSH') {
+            if (driver.battery > 1.0) { // Needs >1% to deploy
+                modeMod = 1.8; // ERS Boost
+            } else {
+                modeMod = 0; // No power
+            }
+        }
+        if (driver.mode === 'CONSERVE') modeMod = -1.2;
+
+        // DRS / Slipstream
+        let drsMod = 0;
+        let aeroMod = 0;
+        const trackLen = this.getTrackLength();
+        const progress = (driver.distance % trackLen) / trackLen;
+
+        // Dirty Air / DRS
+        if (gapToAhead < 1.0) {
+            const inDrsZone = this.circuit.drsZones ? this.circuit.drsZones.some(z => progress >= z[0] && progress <= z[1]) : true;
+            if (inDrsZone && this.weather.type !== 'RAIN') {
+                drsMod = 1.8;
+            } else {
+                aeroMod = -0.4;
+            }
+        }
+
+        // Random Fluctuation
+        const variance = (100 - driver.consistency) * 0.03;
+        const randomPace = (Math.random() - 0.5) * variance;
+
+        // Tyre Warmup
+        const warmUpLaps = { SOFT: 1, MEDIUM: 2, HARD: 4, INTER: 3, WET: 3 };
+        const requiredWarmUp = warmUpLaps[driver.tyre] || 1;
+        if (driver.tyreAge < requiredWarmUp) {
+            const coldness = (requiredWarmUp - driver.tyreAge);
+            tyrePaceDelta -= (coldness * 0.5); // Reduced cold penalty slightly
+        }
+        if (driver.tyre === 'HARD' && this.trackTemp < 20) {
+            tyrePaceDelta -= (20 - this.trackTemp) * 0.2;
+        }
+
+        // Moisture Physics
+        const moisture = this.trackMoisture;
+        let moisturePenalty = 0;
+        if (['SOFT', 'MEDIUM', 'HARD'].includes(driver.tyre)) {
+            // Slicks: Good until ~0.15
+            if (moisture < 0.15) {
+                moisturePenalty = moisture * 10;
+            } else {
+                moisturePenalty = 1.5 + (moisture - 0.15) * 120; // Cliff
+            }
+        } else if (driver.tyre === 'INTER') {
+            // Inters: 0.15 to 0.75
+            if (moisture < 0.15) moisturePenalty = (0.15 - moisture) * 40;
+            else if (moisture > 0.8) moisturePenalty = (moisture - 0.8) * 50;
+        } else if (driver.tyre === 'WET') {
+            if (moisture < 0.65) moisturePenalty = (0.65 - moisture) * 50;
+        }
+        tyrePaceDelta -= moisturePenalty;
+
+        const totalModPct = (teamMod + skillMod + tyrePaceDelta + modeMod + drsMod + aeroMod - (wearPenalty * 10) + randomPace);
 
         return baseSpeed * (1 + (totalModPct / 100));
     }
 
-    applyTyreWear(driver, dt) {
+    updateCarPhysics(driver, dt) {
+        // --- 1. TYRE WEAR ---
         const tyre = TYRE_COMPOUNDS[driver.tyre];
-
-        // Base wear per second with some randomness per driver
-        // Use ID char code as seed for consistent randomness? Just Math.random ok for now.
-        let wearRate = 0.0004 * this.circuit.tyreWearFactor * (tyre.speedParams.deg * 10);
+        let wearRate = 0.0004 * (this.circuit.tyreWearFactor || 1.0) * (tyre.speedParams.deg * 10);
 
         // Temperature Degradation Factor
-        // If Temp > 30C: Softs degrade much faster, Madiums faster.
         if (this.trackTemp > 30) {
-            const heatFactor = (this.trackTemp - 30) * 0.05; // +5% wear per degree over 30
-            if (driver.tyre === 'SOFT') {
-                wearRate *= (1.0 + heatFactor * 2.0); // Softs double impact
-            } else if (driver.tyre === 'MEDIUM') {
-                wearRate *= (1.0 + heatFactor); // Mediums standard impact
-            }
-            // Hard is unaffected (or barely)
+            const heatFactor = (this.trackTemp - 30) * 0.05;
+            if (driver.tyre === 'SOFT') wearRate *= (1.0 + heatFactor * 2.0);
+            else if (driver.tyre === 'MEDIUM') wearRate *= (1.0 + heatFactor);
         }
 
-        // Mode Multiplier
+        // Moisture Wear
+        if (driver.tyre === 'INTER' || driver.tyre === 'WET') {
+            if (this.trackMoisture < 0.1) wearRate *= 4.0; // Melt
+        }
+        if (['SOFT', 'MEDIUM', 'HARD'].includes(driver.tyre)) {
+            if (this.trackMoisture > 0.3) wearRate *= 0.6; // Slide
+        }
+
         if (driver.mode === 'PUSH') wearRate *= 1.25;
         if (driver.mode === 'CONSERVE') wearRate *= 0.8;
-
-        // Dirty Air Wear
         if (driver.gapToAhead < 1.0) wearRate *= 1.1;
 
         driver.tyreHealth -= wearRate * dt;
         if (driver.tyreHealth < 0) driver.tyreHealth = 0;
+
+        // --- 2. ERS / BATTERY ---
+        // Charge/Drain Rates (% per second)
+        const DRAIN_RATE = 2.5; // Drains full in 40s
+        const SLOW_CHARGE = 0.2; // Balanced
+        const FAST_CHARGE = 1.2; // Conserve
+
+        if (driver.mode === 'PUSH') {
+            if (driver.battery > 0) {
+                driver.battery -= DRAIN_RATE * dt;
+            } else {
+                driver.battery += 0.1 * dt; // Trickle if empty
+            }
+        } else if (driver.mode === 'BALANCED') {
+            driver.battery += SLOW_CHARGE * dt;
+        } else if (driver.mode === 'CONSERVE') {
+            driver.battery += FAST_CHARGE * dt;
+        }
+
+        // Clamp
+        if (driver.battery < 0) driver.battery = 0;
+        if (driver.battery > 100) driver.battery = 100;
     }
 
     handleLapComplete(driver, newLap) {
         driver.lap = newLap;
         driver.tyreAge++;
 
-        // AI Logic: Box if tyres dead or strategy calls
+        // AI Logic
         if (!driver.isUser) {
             this.aiStrategy(driver);
         }
@@ -294,69 +433,116 @@ export class RaceEngine {
     }
 
     aiStrategy(driver) {
-        // AI Strategy Update every lap
+        // 1. Weather Reaction
+        let weatherCall = false;
 
-        // 1. Pit Logic
-        // Diff box logic: Softs allow < 20%, Med < 15%, Hard < 10%
-        // Randomize threshold to spread out stops
-        let boxThreshold = 0.3; // Default
+        if (this.weather.type === 'RAIN') {
+            const isSlicks = ['SOFT', 'MEDIUM', 'HARD'].includes(driver.tyre);
+            if (isSlicks && !driver.boxThisLap && !driver.isInPit) {
+                driver.boxThisLap = true;
+                driver.pitPendingTyre = 'INTER';
+                weatherCall = true;
+            }
+        } else {
+            const isInters = ['INTER', 'WET'].includes(driver.tyre);
+            if (isInters && !driver.boxThisLap && !driver.isInPit) {
+                // Decision Logic
+                let shouldBox = false;
+
+                if (this.difficulty === 'HARD') {
+                    // Smart AI: Wait for track to dry enough (Crossover point ~0.15)
+                    // If moisture is still high (> 0.2), stay on Inters
+                    if (this.trackMoisture < 0.20) {
+                        shouldBox = true;
+                    }
+                } else {
+                    // Easy AI: Box immediately when Race Control says "DRY"
+                    // They will pit too early and slide on the wet track
+                    shouldBox = true;
+                }
+
+                if (shouldBox) {
+                    driver.boxThisLap = true;
+                    const lapsRemaining = this.laps - driver.lap;
+                    driver.pitPendingTyre = lapsRemaining < 15 ? 'SOFT' : 'MEDIUM';
+                    weatherCall = true;
+                }
+            }
+        }
+
+        if (weatherCall) return;
+
+        // 2. Regular Wear / Strategy Logic
+        let boxThreshold = 0.3;
         if (driver.tyre === 'HARD') boxThreshold = 0.15;
+        if (driver.tyre === 'INTER') boxThreshold = 0.25;
 
         if (driver.tyreHealth < boxThreshold && !driver.boxThisLap) {
             driver.boxThisLap = true;
-            // Choice logic
             const lapsRemaining = this.laps - driver.lap;
-            driver.pitPendingTyre = lapsRemaining < 15 ? 'SOFT' : 'HARD';
-            // Default to Med if mid-race
-            if (lapsRemaining > 20 && lapsRemaining < 40) driver.pitPendingTyre = 'MEDIUM';
 
-            // Allow override to Soft if aggressive
-            if (Math.random() > 0.8) driver.pitPendingTyre = 'SOFT';
+            if (this.weather.type === 'RAIN') {
+                driver.pitPendingTyre = 'INTER';
+            } else {
+                driver.pitPendingTyre = lapsRemaining < 15 ? 'SOFT' : 'HARD';
+                if (lapsRemaining > 20 && lapsRemaining < 40) driver.pitPendingTyre = 'MEDIUM';
+                if (Math.random() > 0.8) driver.pitPendingTyre = 'SOFT';
+            }
         }
 
-        // 2. Pace Logic (Mode Switching)
-        // If has DRS, PUSH to pass!
-        if (driver.gapToAhead < 1.0) {
+        // 3. ERS / Mode Logic
+        // AI Battery Management
+        if (driver.battery < 20) {
+            // Low Battery: Recharge
+            driver.mode = Math.random() > 0.5 ? 'BALANCED' : 'CONSERVE';
+        } else if (driver.battery > 90) {
+            // Full Battery: Deploy
             driver.mode = 'PUSH';
-        } else if (driver.tyreHealth < 0.4) {
-            // Tyres dying, CONSERVE
-            driver.mode = 'CONSERVE';
         } else {
-            // Randomly switch modes
-            const rand = Math.random();
-            if (rand > 0.7) driver.mode = 'PUSH';
-            else if (rand < 0.2) driver.mode = 'CONSERVE';
-            else driver.mode = 'BALANCED';
+            // Normal Operation
+            if (driver.gapToAhead < 0.8 && driver.battery > 40) {
+                driver.mode = 'PUSH'; // Try to overtake
+            } else if (driver.gapToLeader < 2.0 && driver.position === 2) {
+                driver.mode = 'PUSH'; // Chase leader
+            } else {
+                driver.mode = 'BALANCED';
+            }
+        }
+
+        // Pace Logic (Override based on Tyre Health)
+        if (driver.tyreHealth < 0.4) {
+            driver.mode = 'CONSERVE';
         }
     }
 
     enterPit(driver) {
         driver.isInPit = true;
         driver.boxThisLap = false;
-        // Total time loss in pit area specific to track
         driver.pitTimer = this.circuit.pitTimeLoss || 25.0;
-
-        // Store pending choice
-        if (!driver.pitPendingTyre) driver.pitPendingTyre = 'MEDIUM'; // Fallback
-
-        // Reset Mode logic 
+        if (!driver.pitPendingTyre) driver.pitPendingTyre = 'MEDIUM';
         driver.mode = 'BALANCED';
     }
 
     exitPit(driver) {
-        // Change Tyres
         driver.tyre = driver.pitPendingTyre;
         driver.tyreHealth = 1.0;
         driver.tyreAge = 0;
         driver.pitPendingTyre = null;
-
         driver.isInPit = false;
     }
 
     finishRace() {
         this.isRaceOver = true;
-        // Final Sort by Rank
-        this.drivers.sort((a, b) => (a.finishRank || 99) - (b.finishRank || 99));
+        // Final Sort: Laps DESC, Time ASC
+        this.drivers.sort((a, b) => {
+            const lapsA = a.lapsCompleted || 0;
+            const lapsB = b.lapsCompleted || 0;
+            if (lapsA !== lapsB) return lapsB - lapsA;
+            return a.finishTime - b.finishTime;
+        });
+
+        this.drivers.forEach((d, i) => d.finishRank = i + 1);
+
         if (this.onRaceFinish) this.onRaceFinish(this.drivers);
     }
 

@@ -33,6 +33,13 @@
                     <h2>Select Strategy</h2>
                     <div id="tyre-grid" class="list-select"></div>
                 </div>
+                <!-- Difficulty Selection -->
+                <div class="selection-group">
+                    <h2>Difficulty</h2>
+                    <div id="difficulty-grid" class="list-select" style="display:flex; gap:10px;">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
                 <button id="start-race-btn" class="action-btn" disabled>INITIALIZE SESSION</button>
             </div>
         </div>
@@ -43,10 +50,14 @@
                     <h2 id="race-circuit-name">Monza</h2>
                     <span id="race-lap-counter">Lap 1 / 53</span>
                 </div>
-                <div class="weather-widget">
-                    <span id="weather-icon">☀️</span>
-                    <span id="weather-text">Dry</span>
-                    <span id="track-temp" style="margin-left:15px; font-weight:bold; color:#ff9f43;">--°C</span>
+                <div class="weather-widget" style="flex-direction:column; align-items:flex-end;">
+                    <div>
+                        <span id="weather-icon">☀️</span>
+                        <span id="weather-text">Dry</span>
+                        <span id="track-temp" style="margin-left:15px; font-weight:bold; color:#ff9f43;">--°C</span>
+                    </div>
+                    <div id="weather-forecast" style="font-size:0.8em; color:#ddd; margin-top:4px;">Forecast: Stable
+                    </div>
                 </div>
             </header>
 
@@ -63,10 +74,12 @@
                 <section class="center-console">
                     <div id="track-map-container">
                         <h3>Live Tracker</h3>
-                        <svg id="track-svg" viewBox="0 0 800 600">
-                            <!-- Path injected via JS -->
-                            <path id="track-path" stroke="#333" stroke-width="20" fill="none" />
-                            <circle id="player-marker" r="10" fill="#e10600" />
+                        <svg id="track-svg" viewBox="0 0 850 450" style="background:#111; border-radius:8px;">
+                            <g id="track-group">
+                                <!-- Path injected via JS -->
+                                <path id="track-path" stroke="#333" stroke-width="20" fill="none" />
+                                <circle id="player-marker" r="10" fill="#e10600" />
+                            </g>
                         </svg>
                     </div>
                     <div class="messages-feeds">
@@ -88,6 +101,12 @@
                             <label>Wear </label>
                             <div class="bar-container">
                                 <div id="telemetry-wear" class="bar" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <div class="stat">
+                            <label>Energy</label>
+                            <div class="bar-container">
+                                <div id="telemetry-ers" class="bar" style="width: 100%; background: #06b6d4;"></div>
                             </div>
                         </div>
                     </div>
