@@ -2,6 +2,8 @@
 
 A real-time strategy simulation where you take on the role of a Race Engineer on the F1 pitwall. Your goal is to manage your driver's pace, tyre strategy, and pit stops to secure the best possible race result against a grid of AI opponents.
 
+🏁 **Play the game live:** [https://raceengineer.tech/](https://raceengineer.tech/)
+
 ## Features
 
 ### 🏎️ Live Race Simulation
@@ -32,7 +34,7 @@ Includes 5 iconic tracks with specific characteristics (tyre wear, overtake diff
 - **Design**: Responsive grid layout with a dark "Pitwall" aesthetic.
 - **No Dependencies**: Runs natively in any modern browser.
 
-## How to Run
+## How to Run Locally
 
 1. Clone the repository:
    ```bash
