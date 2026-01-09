@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Race Engineer Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Titillium+Web:wght@400;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="app">
+        <!-- Screens will be injected here via JS -->
+        <div id="start-screen" class="screen active">
+            <h1 class="logo">PITWALL <span class="accent">PRO</span></h1>
+            <div class="setup-container">
+                <div class="selection-group">
+                    <h2>Select Driver</h2>
+                    <div id="driver-grid" class="grid-select"></div>
+                </div>
+                <div class="selection-group">
+                    <h2>Select Circuit</h2>
+                    <div id="circuit-grid" class="list-select"></div>
+                </div>
+                <div class="selection-group">
+                    <h2>Select Strategy</h2>
+                    <div id="tyre-grid" class="list-select"></div>
+                </div>
+                <button id="start-race-btn" class="action-btn" disabled>INITIALIZE SESSION</button>
+            </div>
+        </div>
+
+        <div id="race-screen" class="screen hidden">
+            <header class="race-header">
+                <div class="track-info">
+                    <h2 id="race-circuit-name">Monza</h2>
+                    <span id="race-lap-counter">Lap 1 / 53</span>
+                </div>
+                <div class="weather-widget">
+                    <span id="weather-icon">☀️</span>
+                    <span id="weather-text">Dry</span>
+                </div>
+            </header>
+
+            <main class="race-dashboard">
+                <aside class="leaderboard-panel">
+                    <h3>Standings</h3>
+                    <div id="leaderboard-list">
+                        <!-- Drivers items -->
+                    </div>
+                </aside>
+
+                <section class="center-console">
+                    <div id="track-map-container">
+                        <h3>Live Tracker</h3>
+                        <svg id="track-svg" viewBox="0 0 800 600">
+                            <!-- Path injected via JS -->
+                            <path id="track-path" stroke="#333" stroke-width="20" fill="none" />
+                            <circle id="player-marker" r="10" fill="#e10600" />
+                        </svg>
+                    </div>
+                    <div class="messages-feeds">
+                        <h3>Radio / Race Control</h3>
+                        <div id="message-log" class="log-container">
+                            <div class="msg system">System Initialized.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <aside class="controls-panel">
+                    <h3>Car Telemetry</h3>
+                    <div class="telemetry-box">
+                        <div class="stat">
+                            <label>Tyre</label>
+                            <span id="telemetry-tyre">Soft</span>
+                        </div>
+                        <div class="stat">
+                            <label>Wear </label>
+                            <div class="bar-container">
+                                <div id="telemetry-wear" class="bar" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="strategy-controls">
+                        <h3>Strategy Call</h3>
+                        <div class="btn-group">
+                            <button class="strat-btn push" data-mode="push">PUSH</button>
+                            <button class="strat-btn balanced active" data-mode="balanced">BALANCED</button>
+                            <button class="strat-btn conserve" data-mode="conserve">CONSERVE</button>
+                        </div>
+                        <button id="box-btn" class="box-btn">BOX BOX</button>
+                        <div id="pit-options" class="hidden">
+                            <button class="tyre-select" data-tyre="SOFT">Soft</button>
+                            <button class="tyre-select" data-tyre="MEDIUM">Med</button>
+                            <button class="tyre-select" data-tyre="HARD">Hard</button>
+                            <button class="tyre-select" data-tyre="INTER">Inter</button>
+                        </div>
+                    </div>
+                </aside>
+            </main>
+        </div>
+
+        <div id="post-race-screen" class="screen hidden">
+            <h1>Session Complete</h1>
+            <div id="podium-display"></div>
+            <button id="restart-btn" class="action-btn">Return to Garage</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="src/app.js"></script>
+</body>
+
+</html>
