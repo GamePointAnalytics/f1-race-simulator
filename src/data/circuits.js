@@ -1,6 +1,6 @@
 export const TYRE_COMPOUNDS = {
-    SOFT: { name: "Soft", color: "#FF3333", speedParams: { base: 0.0, deg: 0.12 }, life: 20 },
-    MEDIUM: { name: "Medium", color: "#FFFF33", speedParams: { base: 0.5, deg: 0.06 }, life: 35 },
+    SOFT: { name: "Soft", color: "#FF3333", speedParams: { base: 0.0, deg: 0.10 }, life: 25 }, // Slightly improved life/deg
+    MEDIUM: { name: "Medium", color: "#FFFF33", speedParams: { base: 0.5, deg: 0.05 }, life: 40 }, // Improved life/deg
     HARD: { name: "Hard", color: "#FFFFFF", speedParams: { base: 1.0, deg: 0.02 }, life: 65 }, // Durable
     INTER: { name: "Inter", color: "#33CC33", speedParams: { base: 2.0, deg: 0.05 }, life: 30 },
     WET: { name: "Wet", color: "#3333FF", speedParams: { base: 5.0, deg: 0.05 }, life: 30 }

@@ -7,6 +7,8 @@ export class RaceEngine {
         this.laps = circuit.laps;
         this.currentLap = 0; // Leading car lap
         this.weather = { type: 'DRY', rainIntensity: 0.0 }; // 0.0 to 1.0
+        // Random Track Temp (15C to 40C)
+        this.trackTemp = Math.floor(Math.random() * 25) + 15;
         this.isRaceOver = false;
         this.chequeredFlag = false;
         this.nextFinishRank = 1;
@@ -170,7 +172,7 @@ export class RaceEngine {
         // Update positions array
         activeDrivers.forEach((d, i) => d.position = i + 1);
 
-        if (this.onUpdate) this.onUpdate(activeDrivers, this.currentLap);
+        if (this.onUpdate) this.onUpdate(activeDrivers, this.currentLap, this.trackTemp);
     }
 
     calculateSpeed(driver, gapToAhead) {
@@ -235,7 +237,14 @@ export class RaceEngine {
         // Hard is slower (positive base). Soft is faster (0 base).
         // 1.0s lap time diff on 80s lap is 1.25%.
         const tyre = TYRE_COMPOUNDS[driver.tyre];
-        const tyrePaceDelta = -tyre.speedParams.base;
+        let tyrePaceDelta = -tyre.speedParams.base;
+
+        // Temperature Performance Penalty (Hard tyres struggle in cold < 20C)
+        if (driver.tyre === 'HARD' && this.trackTemp < 20) {
+            // e.g. at 10C, penalty is severe. at 19C, mild.
+            const coldFactor = (20 - this.trackTemp) * 0.1; // 0.1% per degree -> small speed loss
+            tyrePaceDelta -= coldFactor;
+        }
 
         const totalModPct = (skillMod + tyrePaceDelta + modeMod + drsMod + aeroMod - (wearPenalty * 10) + randomPace);
 
@@ -248,6 +257,18 @@ export class RaceEngine {
         // Base wear per second with some randomness per driver
         // Use ID char code as seed for consistent randomness? Just Math.random ok for now.
         let wearRate = 0.0004 * this.circuit.tyreWearFactor * (tyre.speedParams.deg * 10);
+
+        // Temperature Degradation Factor
+        // If Temp > 30C: Softs degrade much faster, Madiums faster.
+        if (this.trackTemp > 30) {
+            const heatFactor = (this.trackTemp - 30) * 0.05; // +5% wear per degree over 30
+            if (driver.tyre === 'SOFT') {
+                wearRate *= (1.0 + heatFactor * 2.0); // Softs double impact
+            } else if (driver.tyre === 'MEDIUM') {
+                wearRate *= (1.0 + heatFactor); // Mediums standard impact
+            }
+            // Hard is unaffected (or barely)
+        }
 
         // Mode Multiplier
         if (driver.mode === 'PUSH') wearRate *= 1.25;
