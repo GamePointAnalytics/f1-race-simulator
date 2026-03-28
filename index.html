@@ -83,11 +83,11 @@
                 <section class="center-console">
                     <div id="track-map-container">
                         <h3>Live Tracker</h3>
-                        <!-- ViewBox Adjusted: Top Padding (-150) to shift track down -->
-                        <svg id="track-svg" viewBox="-50 -150 1100 800" style="background:#111; border-radius:8px;">
+                        <!-- ViewBox: 0 0 1000 1000 fits all normalized tracks -->
+                        <svg id="track-svg" viewBox="0 0 1000 1000" style="background:#111; border-radius:8px;">
                             <g id="track-group">
                                 <!-- Path injected via JS -->
-                                <path id="track-path" stroke="#333" stroke-width="20" fill="none" />
+                                <path id="track-path" stroke="#333" stroke-width="12" fill="none" />
                                 <circle id="player-marker" r="10" fill="#e10600" />
                             </g>
                         </svg>
