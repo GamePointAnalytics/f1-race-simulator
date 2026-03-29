@@ -212,12 +212,24 @@ export class UIManager {
         // Draw Track
         const group = document.getElementById('track-group');
         if (group) {
-            group.setAttribute('transform', 'translate(0, 450) scale(1, -1)');
+            group.removeAttribute('transform'); // No static transform needed
         }
 
         this.elements.trackPath.removeAttribute('transform');
         this.elements.trackPath.setAttribute('d', circuitPath);
         this.elements.trackPath.setAttribute('vector-effect', 'non-scaling-stroke');
+
+        // Auto-fit: compute bounding box and set viewBox to frame the track
+        const svg = document.getElementById('track-svg');
+        try {
+            const bbox = this.elements.trackPath.getBBox();
+            const pad = 60; // Padding around the track
+            svg.setAttribute('viewBox',
+                `${bbox.x - pad} ${bbox.y - pad} ${bbox.width + pad * 2} ${bbox.height + pad * 2}`);
+        } catch(e) {
+            // Fallback
+            svg.setAttribute('viewBox', '0 0 1000 1000');
+        }
 
         const len = this.elements.trackPath.getTotalLength();
         if (len > 0) {

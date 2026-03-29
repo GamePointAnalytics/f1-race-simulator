@@ -83,8 +83,8 @@
                 <section class="center-console">
                     <div id="track-map-container">
                         <h3>Live Tracker</h3>
-                        <!-- ViewBox: 0 0 1000 1000 fits all normalized tracks -->
-                        <svg id="track-svg" viewBox="0 0 1000 1000" style="background:#111; border-radius:8px;">
+                        <!-- ViewBox: wider than tall to match container aspect ratio -->
+                        <svg id="track-svg" viewBox="-100 -50 1200 700" preserveAspectRatio="xMidYMid meet" style="background:#111; border-radius:8px;">
                             <g id="track-group">
                                 <!-- Path injected via JS -->
                                 <path id="track-path" stroke="#333" stroke-width="12" fill="none" />
