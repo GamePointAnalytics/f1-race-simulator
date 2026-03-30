@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Track Editor</title>
+    <title>F1 Track Editor v2</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -14,265 +14,192 @@
             height: 100vh;
         }
         .sidebar {
-            width: 320px;
+            width: 300px;
             background: #16213e;
-            padding: 20px;
+            padding: 15px;
             overflow-y: auto;
             border-right: 1px solid #333;
         }
-        .sidebar h1 {
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            color: #e94560;
-        }
-        .track-list {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            margin-bottom: 20px;
-        }
+        .sidebar h1 { font-size: 1.1rem; margin-bottom: 10px; color: #e94560; }
+        .track-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 15px; }
         .track-btn {
-            background: #0f3460;
-            border: none;
-            color: #ddd;
-            padding: 8px 12px;
-            text-align: left;
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 0.85rem;
+            background: #0f3460; border: none; color: #ddd; padding: 6px 10px;
+            text-align: left; cursor: pointer; border-radius: 4px; font-size: 0.8rem;
         }
         .track-btn:hover { background: #1a508b; }
         .track-btn.active { background: #e94560; color: #fff; }
+        .track-btn.done { border-left: 3px solid #0f0; }
 
-        .controls {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-top: 15px;
-        }
-        .control-group label {
-            display: block;
-            font-size: 0.75rem;
-            color: #999;
-            margin-bottom: 4px;
-            text-transform: uppercase;
-        }
-        .control-group input[type="range"] {
-            width: 100%;
-        }
-        .control-group .value {
-            font-size: 0.8rem;
-            color: #e94560;
-            float: right;
-        }
-        .checkbox-row {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-        .checkbox-row label {
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-        .checkbox-row input { cursor: pointer; }
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        .control-group label { display: block; font-size: 0.7rem; color: #999; margin-bottom: 2px; text-transform: uppercase; }
+        .control-group .value { font-size: 0.75rem; color: #e94560; float: right; }
+        .control-group input[type="range"] { width: 100%; }
+        .checkbox-row { display: flex; gap: 12px; align-items: center; }
+        .checkbox-row label { font-size: 0.8rem; cursor: pointer; }
 
-        .actions {
-            margin-top: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .actions { margin-top: 15px; display: flex; flex-direction: column; gap: 6px; }
         .action-btn {
-            background: #e94560;
-            border: none;
-            color: #fff;
-            padding: 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 0.9rem;
+            background: #e94560; border: none; color: #fff; padding: 8px;
+            border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85rem;
         }
         .action-btn:hover { background: #c73650; }
-        .action-btn.secondary {
-            background: #0f3460;
-        }
+        .action-btn.secondary { background: #0f3460; }
         .action-btn.secondary:hover { background: #1a508b; }
 
+        .info-box {
+            margin-top: 10px; padding: 8px; background: #0a0a1a; 
+            border: 1px solid #333; border-radius: 6px; font-size: 0.75rem;
+            color: #aaa; line-height: 1.5;
+        }
+        .info-box .correct { color: #0f0; }
+        .info-box .wrong { color: #e94560; }
+
         .main-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            position: relative;
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; padding: 20px; position: relative;
         }
-        .preview-container {
-            background: #111;
-            border: 2px solid #333;
-            border-radius: 12px;
-            position: relative;
-        }
-        .preview-container svg {
-            display: block;
-        }
+        .preview-container { background: #111; border: 2px solid #333; border-radius: 12px; position: relative; }
+        .preview-container svg { display: block; }
         .track-name-overlay {
-            position: absolute;
-            top: 15px;
-            left: 20px;
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: #e94560;
-            text-shadow: 0 0 10px rgba(233,69,96,0.5);
+            position: absolute; top: 12px; left: 15px;
+            font-size: 1.3rem; font-weight: bold; color: #e94560;
         }
-        .grid-info {
-            position: absolute;
-            bottom: 15px;
-            right: 20px;
-            font-size: 0.75rem;
-            color: #555;
+        .direction-info {
+            position: absolute; top: 12px; right: 15px;
+            font-size: 0.85rem; color: #aaa;
         }
-        
-        /* Export modal */
+        .legend {
+            position: absolute; bottom: 12px; left: 15px; font-size: 0.7rem; color: #666;
+        }
+
         .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center;
         }
         .modal-overlay.active { display: flex; }
         .modal {
-            background: #16213e;
-            border: 1px solid #e94560;
-            border-radius: 12px;
-            padding: 25px;
-            max-width: 800px;
-            width: 90%;
-            max-height: 80vh;
+            background: #16213e; border: 1px solid #e94560; border-radius: 12px;
+            padding: 20px; max-width: 900px; width: 90%; max-height: 80vh; overflow-y: auto;
         }
-        .modal h2 { color: #e94560; margin-bottom: 15px; }
+        .modal h2 { color: #e94560; margin-bottom: 10px; }
         .modal textarea {
-            width: 100%;
-            height: 300px;
-            background: #0a0a1a;
-            color: #0f0;
-            border: 1px solid #333;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 0.8rem;
-            border-radius: 6px;
-            resize: vertical;
+            width: 100%; height: 400px; background: #0a0a1a; color: #0f0;
+            border: 1px solid #333; padding: 8px; font-family: monospace; font-size: 0.75rem;
+            border-radius: 6px; resize: vertical;
         }
-        .modal .btn-row {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .status-bar {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            font-size: 0.75rem;
-            color: #666;
-        }
+        .modal .btn-row { margin-top: 10px; display: flex; gap: 8px; }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <h1>🏎️ F1 Track Editor</h1>
+    <h1>🏎️ Track Direction Editor</h1>
     <div class="track-list" id="track-list"></div>
 
     <div class="controls">
         <div class="control-group">
-            <label>Scale <span class="value" id="scale-val">1.00</span></label>
-            <input type="range" id="scale" min="0.3" max="3" step="0.05" value="1">
+            <label>Start Offset <span class="value" id="offset-val">0.00</span></label>
+            <input type="range" id="startOffset" min="0" max="1" step="0.01" value="0">
+        </div>
+        <div class="checkbox-row">
+            <label><input type="checkbox" id="reversed"> Reverse Direction</label>
         </div>
         <div class="control-group">
-            <label>X Offset <span class="value" id="x-val">0</span></label>
-            <input type="range" id="offsetX" min="-400" max="400" step="5" value="0">
-        </div>
-        <div class="control-group">
-            <label>Y Offset <span class="value" id="y-val">0</span></label>
-            <input type="range" id="offsetY" min="-400" max="400" step="5" value="0">
-        </div>
-        <div class="control-group">
-            <label>Rotation <span class="value" id="rot-val">0°</span></label>
-            <input type="range" id="rotation" min="0" max="360" step="5" value="0">
-        </div>
-        <div class="control-group">
-            <label>Stroke Width <span class="value" id="stroke-val">12</span></label>
-            <input type="range" id="strokeWidth" min="4" max="30" step="1" value="12">
-        </div>
-        <div class="checkbox-row" style="margin-top:10px;">
-            <label><input type="checkbox" id="flipX"> Flip Horizontal</label>
-            <label><input type="checkbox" id="flipY"> Flip Vertical</label>
+            <label>Stroke Width <span class="value" id="stroke-val">8</span></label>
+            <input type="range" id="strokeWidth" min="3" max="20" step="1" value="8">
         </div>
     </div>
 
+    <div class="info-box" id="info-box">
+        Select a track to see direction info.
+    </div>
+
     <div class="actions">
-        <button class="action-btn" id="btn-apply">✅ Save This Track</button>
-        <button class="action-btn secondary" id="btn-reset">🔄 Reset Transform</button>
-        <button class="action-btn secondary" id="btn-export-all">📋 Export All to JS</button>
-        <button class="action-btn secondary" id="btn-auto-fit">🎯 Auto-Fit All Tracks</button>
+        <button class="action-btn" id="btn-save">✅ Save This Track</button>
+        <button class="action-btn secondary" id="btn-export">📋 Export circuits.js Changes</button>
     </div>
 </div>
 
 <div class="main-area">
     <div class="preview-container">
-        <svg id="preview-svg" width="700" height="700" viewBox="0 0 1000 1000">
-            <!-- Grid -->
+        <svg id="preview-svg" width="750" height="550" viewBox="0 0 1000 1000">
             <rect x="0" y="0" width="1000" height="1000" fill="#111" />
-            <rect x="100" y="100" width="800" height="800" fill="none" stroke="#222" stroke-width="1" stroke-dasharray="5,5" />
-            <line x1="500" y1="0" x2="500" y2="1000" stroke="#1a1a1a" stroke-width="0.5" />
-            <line x1="0" y1="500" x2="1000" y2="500" stroke="#1a1a1a" stroke-width="0.5" />
-            <!-- Track -->
-            <g id="track-transform-group">
-                <path id="preview-path" stroke="#555" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round" />
-            </g>
-            <!-- Start/finish marker -->
-            <circle id="start-marker" r="8" fill="#e94560" cx="0" cy="0" style="display:none" />
+            <path id="preview-path" stroke="#444" stroke-width="8" fill="none" stroke-linejoin="round" stroke-linecap="round" />
+            <!-- Direction arrows along the track -->
+            <g id="direction-arrows"></g>
+            <!-- Start/Finish marker -->
+            <circle id="start-marker" r="12" fill="#0f0" opacity="0.9" cx="0" cy="0" />
+            <text id="start-label" fill="#0f0" font-size="14" font-weight="bold" x="0" y="0">S/F</text>
+            <!-- Animated car dot -->
+            <circle id="car-dot" r="8" fill="#e94560" cx="0" cy="0" />
         </svg>
         <div class="track-name-overlay" id="track-label">Select a track</div>
-        <div class="grid-info">ViewBox: 0 0 1000 1000 | Target area: 100-900</div>
+        <div class="direction-info" id="direction-info"></div>
+        <div class="legend">
+            🟢 = Start/Finish | 🔴 = Car (animated) | ➤ = Direction arrows
+        </div>
     </div>
-    <div class="status-bar" id="status">Ready. Select a track from the sidebar.</div>
 </div>
 
 <!-- Export Modal -->
 <div class="modal-overlay" id="export-modal">
     <div class="modal">
-        <h2>Export Track Paths</h2>
-        <p style="font-size:0.85rem; color:#aaa; margin-bottom:10px;">
-            Copy this and paste it into your <code>circuits.js</code> file, replacing the existing path values.
-        </p>
+        <h2>Export Direction Data</h2>
         <textarea id="export-text" readonly></textarea>
         <div class="btn-row">
-            <button class="action-btn" onclick="copyExport()">📋 Copy to Clipboard</button>
+            <button class="action-btn" onclick="copyExport()">📋 Copy</button>
             <button class="action-btn secondary" onclick="document.getElementById('export-modal').classList.remove('active')">Close</button>
         </div>
     </div>
 </div>
 
 <script type="module">
-    // Import circuits data
     import { CIRCUITS } from './src/data/circuits.js';
 
-    const state = {
-        tracks: {},        // id -> { originalPath, transform: {scale, offsetX, offsetY, rotation, flipX, flipY, strokeWidth} }
-        currentId: null,
+    // Known correct racing directions
+    const CORRECT_DIRECTIONS = {
+        oz: { direction: 'clockwise', label: 'Australia (Melbourne)' },
+        china: { direction: 'clockwise', label: 'China (Shanghai)' },
+        suzuka: { direction: 'clockwise', label: 'Japan (Suzuka) - Figure 8' },
+        bahrain: { direction: 'clockwise', label: 'Bahrain (Sakhir)' },
+        jeddah: { direction: 'counter-clockwise', label: 'Saudi Arabia (Jeddah)' },
+        miami: { direction: 'counter-clockwise', label: 'USA (Miami)' },
+        imola: { direction: 'counter-clockwise', label: 'Italy (Imola)' },
+        monaco: { direction: 'clockwise', label: 'Monaco' },
+        barcelona: { direction: 'clockwise', label: 'Spain (Barcelona)' },
+        canada: { direction: 'clockwise', label: 'Canada (Montreal)' },
+        austria: { direction: 'clockwise', label: 'Austria (Red Bull Ring)' },
+        silverstone: { direction: 'clockwise', label: 'Great Britain (Silverstone)' },
+        spa: { direction: 'clockwise', label: 'Belgium (Spa)' },
+        hungary: { direction: 'clockwise', label: 'Hungary (Hungaroring)' },
+        zandvoort: { direction: 'clockwise', label: 'Netherlands (Zandvoort)' },
+        monza: { direction: 'clockwise', label: 'Italy (Monza)' },
+        baku: { direction: 'counter-clockwise', label: 'Azerbaijan (Baku)' },
+        singapore: { direction: 'counter-clockwise', label: 'Singapore (Marina Bay)' },
+        austin: { direction: 'counter-clockwise', label: 'USA (COTA)' },
+        mexico: { direction: 'clockwise', label: 'Mexico (Mexico City)' },
+        interlagos: { direction: 'counter-clockwise', label: 'Brazil (Interlagos)' },
+        vegas: { direction: 'counter-clockwise', label: 'USA (Las Vegas)' },
+        qatar: { direction: 'clockwise', label: 'Qatar (Lusail)' },
+        abudhabi: { direction: 'clockwise', label: 'Abu Dhabi (Yas Marina)' },
+        testing: { direction: 'clockwise', label: 'Testing (Barcelona)' },
     };
 
-    // Initialize from current circuits.js
+    const state = {
+        tracks: {},
+        currentId: null,
+        animFrame: null,
+        animProgress: 0,
+    };
+
+    // Initialize
     CIRCUITS.forEach(c => {
         state.tracks[c.id] = {
             name: c.name,
-            originalPath: c.path,
-            transform: { scale: 1, offsetX: 0, offsetY: 0, rotation: 0, flipX: false, flipY: false, strokeWidth: 12 }
+            path: c.path,
+            startOffset: c.startOffset || 0,
+            reversed: c.reversed || false,
+            strokeWidth: 8,
         };
     });
 
@@ -281,186 +208,181 @@
     CIRCUITS.forEach(c => {
         const btn = document.createElement('button');
         btn.className = 'track-btn';
-        btn.textContent = `${c.name} (${c.id})`;
+        const dir = CORRECT_DIRECTIONS[c.id];
+        const dirIcon = dir?.direction === 'counter-clockwise' ? '↺' : '↻';
+        btn.textContent = `${dirIcon} ${c.name}`;
         btn.dataset.id = c.id;
         btn.addEventListener('click', () => selectTrack(c.id));
         listEl.appendChild(btn);
     });
 
-    // Controls
-    const scaleSlider = document.getElementById('scale');
-    const offsetXSlider = document.getElementById('offsetX');
-    const offsetYSlider = document.getElementById('offsetY');
-    const rotationSlider = document.getElementById('rotation');
+    const offsetSlider = document.getElementById('startOffset');
+    const reversedCheck = document.getElementById('reversed');
     const strokeSlider = document.getElementById('strokeWidth');
-    const flipXCheck = document.getElementById('flipX');
-    const flipYCheck = document.getElementById('flipY');
+    const pathEl = document.getElementById('preview-path');
+    const svgEl = document.getElementById('preview-svg');
+    const startMarker = document.getElementById('start-marker');
+    const startLabel = document.getElementById('start-label');
+    const carDot = document.getElementById('car-dot');
+    const arrowsGroup = document.getElementById('direction-arrows');
 
     function selectTrack(id) {
         state.currentId = id;
         const t = state.tracks[id];
 
-        // Highlight button
-        document.querySelectorAll('.track-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+        document.querySelectorAll('.track-btn').forEach(b => 
+            b.classList.toggle('active', b.dataset.id === id));
 
-        // Load transform into controls
-        scaleSlider.value = t.transform.scale;
-        offsetXSlider.value = t.transform.offsetX;
-        offsetYSlider.value = t.transform.offsetY;
-        rotationSlider.value = t.transform.rotation;
-        strokeSlider.value = t.transform.strokeWidth;
-        flipXCheck.checked = t.transform.flipX;
-        flipYCheck.checked = t.transform.flipY;
+        offsetSlider.value = t.startOffset;
+        reversedCheck.checked = t.reversed;
+        strokeSlider.value = t.strokeWidth;
 
         document.getElementById('track-label').textContent = t.name;
+        
+        const dir = CORRECT_DIRECTIONS[id];
+        document.getElementById('direction-info').textContent = 
+            dir ? `Should be: ${dir.direction}` : '';
+
+        // Update info box
+        const infoBox = document.getElementById('info-box');
+        infoBox.innerHTML = `<b>${t.name}</b><br>` +
+            `Direction: ${dir?.direction || 'unknown'}<br>` +
+            `Start Offset: ${t.startOffset.toFixed(2)}<br>` +
+            `Reversed: ${t.reversed}`;
+
         renderPreview();
+        startAnimation();
     }
 
     function renderPreview() {
         if (!state.currentId) return;
         const t = state.tracks[state.currentId];
-        const tf = t.transform;
 
-        // Update value displays
-        document.getElementById('scale-val').textContent = tf.scale.toFixed(2);
-        document.getElementById('x-val').textContent = tf.offsetX;
-        document.getElementById('y-val').textContent = tf.offsetY;
-        document.getElementById('rot-val').textContent = tf.rotation + '°';
-        document.getElementById('stroke-val').textContent = tf.strokeWidth;
+        document.getElementById('offset-val').textContent = t.startOffset.toFixed(2);
+        document.getElementById('stroke-val').textContent = t.strokeWidth;
 
-        // Apply transform to group
-        const group = document.getElementById('track-transform-group');
-        const transforms = [];
-        // Translate to center, apply transforms, translate back
-        transforms.push(`translate(${500 + tf.offsetX}, ${500 + tf.offsetY})`);
-        transforms.push(`rotate(${tf.rotation})`);
-        transforms.push(`scale(${tf.flipX ? -tf.scale : tf.scale}, ${tf.flipY ? -tf.scale : tf.scale})`);
-        transforms.push(`translate(-500, -500)`);
-        group.setAttribute('transform', transforms.join(' '));
+        pathEl.setAttribute('d', t.path);
+        pathEl.setAttribute('stroke-width', t.strokeWidth);
 
-        // Set path
-        const pathEl = document.getElementById('preview-path');
-        pathEl.setAttribute('d', t.originalPath);
-        pathEl.setAttribute('stroke-width', tf.strokeWidth);
+        // Auto-fit viewBox
+        try {
+            const bbox = pathEl.getBBox();
+            const pad = 50;
+            svgEl.setAttribute('viewBox',
+                `${bbox.x - pad} ${bbox.y - pad} ${bbox.width + pad * 2} ${bbox.height + pad * 2}`);
+        } catch(e) {}
 
-        document.getElementById('status').textContent = `Editing: ${t.name} | Path length: ${t.originalPath.length} chars`;
+        // Draw start/finish marker
+        const len = pathEl.getTotalLength();
+        const sfDist = t.startOffset * len;
+        const sfPoint = pathEl.getPointAtLength(t.reversed ? (len - sfDist) : sfDist);
+        startMarker.setAttribute('cx', sfPoint.x);
+        startMarker.setAttribute('cy', sfPoint.y);
+        startLabel.setAttribute('x', sfPoint.x + 15);
+        startLabel.setAttribute('y', sfPoint.y + 5);
+
+        // Draw direction arrows along the path
+        arrowsGroup.innerHTML = '';
+        const numArrows = 12;
+        for (let i = 0; i < numArrows; i++) {
+            const frac = (i + 0.5) / numArrows;
+            const adjustedFrac = (t.startOffset + frac) % 1;
+            const d1 = t.reversed 
+                ? len * (1 - adjustedFrac) 
+                : len * adjustedFrac;
+            const d2 = t.reversed 
+                ? len * (1 - adjustedFrac) - len * 0.005
+                : len * adjustedFrac + len * 0.005;
+            
+            const p1 = pathEl.getPointAtLength(Math.max(0, Math.min(len, d1)));
+            const p2 = pathEl.getPointAtLength(Math.max(0, Math.min(len, d2)));
+            
+            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+            
+            const arrow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            arrow.setAttribute('points', '0,-5 10,0 0,5');
+            arrow.setAttribute('fill', '#e94560');
+            arrow.setAttribute('opacity', '0.7');
+            arrow.setAttribute('transform', `translate(${p1.x},${p1.y}) rotate(${angle})`);
+            arrowsGroup.appendChild(arrow);
+        }
+    }
+
+    function startAnimation() {
+        if (state.animFrame) cancelAnimationFrame(state.animFrame);
+        state.animProgress = 0;
+        
+        function animate() {
+            if (!state.currentId) return;
+            const t = state.tracks[state.currentId];
+            const len = pathEl.getTotalLength();
+            
+            state.animProgress = (state.animProgress + 0.002) % 1;
+            const adjustedProgress = (t.startOffset + state.animProgress) % 1;
+            const dist = t.reversed 
+                ? len * (1 - adjustedProgress)
+                : len * adjustedProgress;
+            
+            const p = pathEl.getPointAtLength(dist);
+            carDot.setAttribute('cx', p.x);
+            carDot.setAttribute('cy', p.y);
+            
+            state.animFrame = requestAnimationFrame(animate);
+        }
+        animate();
     }
 
     // Wire up controls
-    [scaleSlider, offsetXSlider, offsetYSlider, rotationSlider, strokeSlider].forEach(el => {
-        el.addEventListener('input', () => {
-            if (!state.currentId) return;
-            const tf = state.tracks[state.currentId].transform;
-            tf.scale = parseFloat(scaleSlider.value);
-            tf.offsetX = parseInt(offsetXSlider.value);
-            tf.offsetY = parseInt(offsetYSlider.value);
-            tf.rotation = parseInt(rotationSlider.value);
-            tf.strokeWidth = parseInt(strokeSlider.value);
-            renderPreview();
-        });
-    });
-    [flipXCheck, flipYCheck].forEach(el => {
-        el.addEventListener('change', () => {
-            if (!state.currentId) return;
-            const tf = state.tracks[state.currentId].transform;
-            tf.flipX = flipXCheck.checked;
-            tf.flipY = flipYCheck.checked;
-            renderPreview();
-        });
-    });
-
-    // Reset
-    document.getElementById('btn-reset').addEventListener('click', () => {
+    offsetSlider.addEventListener('input', () => {
         if (!state.currentId) return;
-        state.tracks[state.currentId].transform = { scale: 1, offsetX: 0, offsetY: 0, rotation: 0, flipX: false, flipY: false, strokeWidth: 12 };
-        selectTrack(state.currentId);
+        state.tracks[state.currentId].startOffset = parseFloat(offsetSlider.value);
+        renderPreview();
+    });
+    reversedCheck.addEventListener('change', () => {
+        if (!state.currentId) return;
+        state.tracks[state.currentId].reversed = reversedCheck.checked;
+        renderPreview();
+    });
+    strokeSlider.addEventListener('input', () => {
+        if (!state.currentId) return;
+        state.tracks[state.currentId].strokeWidth = parseInt(strokeSlider.value);
+        renderPreview();
     });
 
-    // Save (mark as done)
-    document.getElementById('btn-apply').addEventListener('click', () => {
+    // Save
+    document.getElementById('btn-save').addEventListener('click', () => {
         if (!state.currentId) return;
         const btn = document.querySelector(`.track-btn[data-id="${state.currentId}"]`);
-        btn.textContent = `✅ ${state.tracks[state.currentId].name} (${state.currentId})`;
-        document.getElementById('status').textContent = `Saved transform for ${state.tracks[state.currentId].name}`;
+        btn.classList.add('done');
     });
 
-    // Auto-fit: compute bounding box of each path and center it
-    document.getElementById('btn-auto-fit').addEventListener('click', () => {
-        const svg = document.getElementById('preview-svg');
-        const pathEl = document.getElementById('preview-path');
-        const group = document.getElementById('track-transform-group');
-        
-        let count = 0;
-        for (const [id, track] of Object.entries(state.tracks)) {
-            // Reset transform
-            group.setAttribute('transform', '');
-            pathEl.setAttribute('d', track.originalPath);
-            
-            // Force re-render to get bbox
-            try {
-                const bbox = pathEl.getBBox();
-                if (bbox.width === 0 || bbox.height === 0) continue;
-                
-                // Calculate scale to fit in 100-900 (800px target)
-                const targetSize = 700;
-                const scale = targetSize / Math.max(bbox.width, bbox.height);
-                
-                // Calculate offset to center
-                const cx = bbox.x + bbox.width / 2;
-                const cy = bbox.y + bbox.height / 2;
-                const offsetX = (500 - cx) * scale + (500 - 500 * scale);
-                const offsetY = (500 - cy) * scale + (500 - 500 * scale);
-                
-                // Round for cleanliness
-                track.transform.scale = Math.round(scale * 100) / 100;
-                track.transform.offsetX = Math.round(offsetX);
-                track.transform.offsetY = Math.round(offsetY);
-                track.transform.rotation = 0;
-                track.transform.flipX = false;
-                track.transform.flipY = false;
-                count++;
-            } catch (e) {
-                console.warn(`Failed to auto-fit ${id}:`, e);
+    // Export
+    document.getElementById('btn-export').addEventListener('click', () => {
+        let output = '// Add these properties to each circuit in circuits.js\n\n';
+        for (const [id, t] of Object.entries(state.tracks)) {
+            if (t.startOffset !== 0 || t.reversed) {
+                output += `// ${t.name} (${id})\n`;
+                if (t.startOffset !== 0) output += `    startOffset: ${t.startOffset.toFixed(2)},\n`;
+                if (t.reversed) output += `    reversed: true,\n`;
+                output += '\n';
             }
         }
         
-        document.getElementById('status').textContent = `Auto-fitted ${count} tracks. Click each to review.`;
-        if (state.currentId) selectTrack(state.currentId);
-    });
-
-    // Export All
-    document.getElementById('btn-export-all').addEventListener('click', () => {
-        // For export, we need to bake the transform INTO the path
-        // The simplest approach: output the transform as CSS/SVG metadata
-        // Or: output the raw path + a note about the transform
-        let output = '// Paste these path values into circuits.js\n';
-        output += '// Each entry: id -> path string\n\n';
-        
-        for (const [id, track] of Object.entries(state.tracks)) {
-            const tf = track.transform;
-            // If no transform applied, just use original
-            output += `// ${track.name} (${id})\n`;
-            output += `// Transform: scale=${tf.scale}, offset=(${tf.offsetX},${tf.offsetY}), rot=${tf.rotation}, flipX=${tf.flipX}, flipY=${tf.flipY}\n`;
-            output += `"${id}": "${track.originalPath}",\n\n`;
+        if (output.split('\n').length <= 3) {
+            output += '// No changes needed - all tracks use defaults (offset=0, not reversed)\n';
         }
         
         document.getElementById('export-text').value = output;
         document.getElementById('export-modal').classList.add('active');
     });
 
-    // Make copyExport available globally
     window.copyExport = function() {
-        const textarea = document.getElementById('export-text');
-        textarea.select();
+        document.getElementById('export-text').select();
         document.execCommand('copy');
-        alert('Copied to clipboard!');
     };
 
-    // Select first track on load
-    if (CIRCUITS.length > 0) {
-        selectTrack(CIRCUITS[0].id);
-    }
+    // Select first track
+    if (CIRCUITS.length > 0) selectTrack(CIRCUITS[0].id);
 </script>
-
 </body>
 </html>

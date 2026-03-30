@@ -68,7 +68,7 @@ function startRace(driverId, circuitId, tyreId, difficulty) {
 
 function beginGameLoop(circuit) {
     engine.start();
-    ui.initRaceView(circuit.name, circuit.laps, circuit.path);
+    ui.initRaceView(circuit.name, circuit.laps, circuit.path, circuit.startOffset || 0, circuit.reversed || false);
     setupControls();
 
     let lastTime = performance.now();

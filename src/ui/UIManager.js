@@ -204,7 +204,9 @@ export class UIManager {
         }
     }
 
-    initRaceView(circuitName, totalLaps, circuitPath) {
+    initRaceView(circuitName, totalLaps, circuitPath, startOffset = 0, reversed = false) {
+        this.trackStartOffset = startOffset;
+        this.trackReversed = reversed;
         this.showScreen('race');
         this.elements.circuitName.textContent = circuitName;
         this.elements.lapCounter.textContent = `Lap 1 / ${totalLaps}`;
@@ -233,9 +235,15 @@ export class UIManager {
 
         const len = this.elements.trackPath.getTotalLength();
         if (len > 0) {
+            // Helper: map a 0-1 progress value to a path distance, respecting startOffset and reversed
+            this._mapProgressToDist = (progress) => {
+                const adjusted = (this.trackStartOffset + progress) % 1;
+                return this.trackReversed ? len * (1 - adjusted) : len * adjusted;
+            };
+
             // 1. Chequered Finish Line
-            const p0 = this.elements.trackPath.getPointAtLength(0);
-            const p1 = this.elements.trackPath.getPointAtLength(len * 0.005);
+            const p0 = this.elements.trackPath.getPointAtLength(this._mapProgressToDist(0));
+            const p1 = this.elements.trackPath.getPointAtLength(this._mapProgressToDist(0.005));
 
             // Vector
             const dx = p1.x - p0.x;
@@ -272,18 +280,20 @@ export class UIManager {
 
             // Entry: 95% - 99%
             for (let i = 0; i <= resolution; i++) {
-                const dist = len * (0.95 + (0.04 * (i / resolution)));
+                const frac = 0.95 + (0.04 * (i / resolution));
+                const dist = this._mapProgressToDist(frac);
                 const p = this.elements.trackPath.getPointAtLength(dist);
                 if (i === 0) pitD += `M ${p.x} ${p.y} `;
                 else pitD += `L ${p.x} ${p.y} `;
             }
 
             // Exit: 1% - 5%
-            const dummyP = this.elements.trackPath.getPointAtLength(len * 0.01);
+            const dummyP = this.elements.trackPath.getPointAtLength(this._mapProgressToDist(0.01));
             pitD += `M ${dummyP.x} ${dummyP.y} `;
 
             for (let i = 0; i <= resolution; i++) {
-                const dist = len * (0.01 + (0.04 * (i / resolution))); // 1-5%
+                const frac = 0.01 + (0.04 * (i / resolution));
+                const dist = this._mapProgressToDist(frac);
                 const p = this.elements.trackPath.getPointAtLength(dist);
                 if (i === 0) pitD += `L ${p.x} ${p.y} `;
                 else pitD += `L ${p.x} ${p.y} `;
@@ -310,21 +320,20 @@ export class UIManager {
         if (!driver) return;
 
         // Normalize progress (0 to 1)
-        // distance can be > trackLength (laps), so modulus
         const progress = (driver.distance % trackLength) / trackLength;
 
-        // Get Point
+        // Get Point using the direction-aware mapper
         const path = this.elements.trackPath;
-        const len = path.getTotalLength();
-        let dist = progress * len;
-
-        if (!Number.isFinite(dist)) {
-            // Guard against NaN distance (e.g. invalid track params)
-            dist = 0;
+        let dist;
+        if (this._mapProgressToDist) {
+            dist = this._mapProgressToDist(progress);
+        } else {
+            dist = progress * path.getTotalLength();
         }
 
-        const point = path.getPointAtLength(dist);
+        if (!Number.isFinite(dist)) dist = 0;
 
+        const point = path.getPointAtLength(dist);
         this.elements.playerMarker.setAttribute('cx', point.x);
         this.elements.playerMarker.setAttribute('cy', point.y);
     }
