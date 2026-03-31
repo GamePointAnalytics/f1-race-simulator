@@ -903,7 +903,7 @@ export class RaceEngine {
     }
 
     getTrackLength() {
-        // Lap time (s) * Avg Speed (m/s). Let's fix track length to 5000m for physics.
-        return 5000;
+        // Lap time (s) * Avg Speed (m/s). Use real track length if available.
+        return this.circuit.length || 5000;
     }
 }
