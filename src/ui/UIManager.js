@@ -233,6 +233,62 @@ export class UIManager {
             svg.setAttribute('viewBox', '0 0 1000 1000');
         }
 
+        // --- Pre-compute curvature-based speed profile ---
+        // Sample the path at N points and measure direction change (curvature)
+        // This creates a speed multiplier: 1.0 on straights, lower in corners
+        const pathLen = this.elements.trackPath.getTotalLength();
+        const PROFILE_RESOLUTION = 200;
+        this._speedProfile = new Float32Array(PROFILE_RESOLUTION);
+
+        if (pathLen > 0) {
+            const step = pathLen / PROFILE_RESOLUTION;
+            const curvatures = new Float32Array(PROFILE_RESOLUTION);
+
+            // 1. Sample curvature at each point (angle change per unit distance)
+            for (let i = 0; i < PROFILE_RESOLUTION; i++) {
+                const d = i * step;
+                const d1 = Math.max(0, d - step * 0.5);
+                const d2 = Math.min(pathLen, d + step * 0.5);
+
+                const p1 = this.elements.trackPath.getPointAtLength(d1);
+                const pMid = this.elements.trackPath.getPointAtLength(d);
+                const p2 = this.elements.trackPath.getPointAtLength(d2);
+
+                // Direction vectors
+                const dx1 = pMid.x - p1.x, dy1 = pMid.y - p1.y;
+                const dx2 = p2.x - pMid.x, dy2 = p2.y - pMid.y;
+
+                // Angle between direction vectors
+                const angle1 = Math.atan2(dy1, dx1);
+                const angle2 = Math.atan2(dy2, dx2);
+                let dAngle = Math.abs(angle2 - angle1);
+                if (dAngle > Math.PI) dAngle = 2 * Math.PI - dAngle;
+
+                curvatures[i] = dAngle;
+            }
+
+            // 2. Smooth curvatures (3-point moving average)
+            const smoothed = new Float32Array(PROFILE_RESOLUTION);
+            for (let i = 0; i < PROFILE_RESOLUTION; i++) {
+                const prev = curvatures[(i - 1 + PROFILE_RESOLUTION) % PROFILE_RESOLUTION];
+                const curr = curvatures[i];
+                const next = curvatures[(i + 1) % PROFILE_RESOLUTION];
+                smoothed[i] = (prev + curr * 2 + next) / 4;
+            }
+
+            // 3. Convert curvature to speed multiplier
+            // Max curvature (tight hairpin) → ~0.35x speed
+            // Zero curvature (straight) → 1.0x speed
+            const maxCurv = Math.max(...smoothed) || 1;
+            for (let i = 0; i < PROFILE_RESOLUTION; i++) {
+                const normCurv = smoothed[i] / maxCurv; // 0 to 1
+                // Map: 0 curvature → 1.0 speed, 1.0 curvature → 0.35 speed
+                this._speedProfile[i] = 1.0 - (normCurv * 0.65);
+            }
+        } else {
+            this._speedProfile.fill(1.0);
+        }
+
         const len = this.elements.trackPath.getTotalLength();
         if (len > 0) {
             // Helper: map a 0-1 progress value to a path distance, respecting startOffset and reversed
@@ -336,6 +392,16 @@ export class UIManager {
         const point = path.getPointAtLength(dist);
         this.elements.playerMarker.setAttribute('cx', point.x);
         this.elements.playerMarker.setAttribute('cy', point.y);
+    }
+
+    /**
+     * Get curvature-based speed multiplier for a given track progress (0-1).
+     * Returns ~1.0 on straights, ~0.35 in tight hairpins.
+     */
+    getSpeedMultiplier(progress) {
+        if (!this._speedProfile) return 1.0;
+        const idx = Math.floor(progress * this._speedProfile.length) % this._speedProfile.length;
+        return this._speedProfile[idx];
     }
 
     updateLeaderboard(drivers, userDriverId) {

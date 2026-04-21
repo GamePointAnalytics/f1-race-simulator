@@ -69,6 +69,8 @@ function startRace(driverId, circuitId, tyreId, difficulty) {
 function beginGameLoop(circuit) {
     engine.start();
     ui.initRaceView(circuit.name, circuit.laps, circuit.path, circuit.startOffset || 0, circuit.reversed || false);
+    // Pass curvature-based speed profile to engine for corner/straight speed variation
+    engine.speedProfile = ui._speedProfile || null;
     setupControls();
 
     let lastTime = performance.now();

@@ -406,17 +406,16 @@ export class RaceEngine {
         // Tyre Wear
         const wearPenalty = (1.0 - driver.tyreHealth) * 2.0;
 
-        // Mode
-        // Mode & ERS
+        // Mode & ERS — Strategy modes have meaningful speed impact
         let modeMod = 0;
         if (driver.mode === 'PUSH') {
             if (driver.battery > 1.0) { // Needs >1% to deploy
-                modeMod = 1.8; // ERS Boost
+                modeMod = 3.0; // Aggressive ERS deployment + late braking
             } else {
-                modeMod = 0; // No power
+                modeMod = 0.8; // Pushing but no ERS available
             }
         }
-        if (driver.mode === 'CONSERVE') modeMod = -1.2;
+        if (driver.mode === 'CONSERVE') modeMod = -2.5; // Lift & coast, early braking
 
         // DRS / Slipstream
         let drsMod = 0;
@@ -515,6 +514,18 @@ export class RaceEngine {
         const totalModPct = (teamMod + skillMod + tyrePaceDelta + modeMod + drsMod + aeroMod - (wearPenalty * 5) + randomPace);
 
         let finalSpeed = baseSpeed * (1 + (totalModPct / 100));
+
+        // --- CURVATURE-BASED CORNER SLOWDOWN ---
+        // Apply track curvature profile: slow in corners, fast on straights
+        if (this.speedProfile && this.speedProfile.length > 0) {
+            const trackLen = this.getTrackLength();
+            const progress = ((driver.distance % trackLen) + trackLen) % trackLen / trackLen;
+            const idx = Math.floor(progress * this.speedProfile.length) % this.speedProfile.length;
+            const curvatureMul = this.speedProfile[idx];
+            // Blend: full straight = 1.15x, tight hairpin = 0.45x
+            // This spreads the speed range while keeping average lap time similar
+            finalSpeed *= (0.3 + curvatureMul * 0.85);
+        }
 
         // Clamp: Prevent negative speed (Reverse)
         if (finalSpeed < 10.0) finalSpeed = 10.0; // Min ~36kph
