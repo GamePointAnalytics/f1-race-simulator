@@ -1,16 +1,68 @@
-import { DRIVERS } from "./data/drivers.js";
+import { DRIVERS, TEAMS } from "./data/drivers.js";
 import { CIRCUITS } from "./data/circuits.js";
 import { RaceEngine } from "./engine/RaceEngine.js";
 import { UIManager } from "./ui/UIManager.js";
 import { QualifyingSession } from "./engine/QualifyingSession.js";
+import { AnalyticsUI } from "./ui/AnalyticsUI.js";
 
 const ui = new UIManager();
+const analyticsUI = new AnalyticsUI();
 let engine = null;
 let userDriverId = null;
 let gameLoopId = null;
 
 // Initial Setup
 ui.renderSelectionGrids(DRIVERS, CIRCUITS, startRace);
+setupTabs();
+setupAnalyticsSelectors();
+
+function setupTabs() {
+    const tabs = document.querySelectorAll('.nav-tab');
+    const screens = document.querySelectorAll('.screen');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Update active tab
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Update active screen
+            const targetId = tab.getAttribute('data-target');
+            screens.forEach(s => {
+                if (s.id === targetId) {
+                    s.classList.remove('hidden');
+                    s.classList.add('active');
+                } else {
+                    s.classList.add('hidden');
+                    s.classList.remove('active');
+                }
+            });
+        });
+    });
+}
+
+function setupAnalyticsSelectors() {
+    const circuitSel = document.getElementById('analytics-circuit');
+    const driverSel = document.getElementById('analytics-driver');
+    
+    if (circuitSel) {
+        CIRCUITS.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            circuitSel.appendChild(opt);
+        });
+    }
+    
+    if (driverSel) {
+        DRIVERS.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = `${d.name} (${TEAMS[d.team].name})`;
+            driverSel.appendChild(opt);
+        });
+    }
+}
 
 function startRace(driverId, circuitId, tyreId, difficulty) {
     console.log("Starting Session:", { driverId, circuitId, tyreId, difficulty });

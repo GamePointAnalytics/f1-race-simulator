@@ -12,11 +12,18 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Titillium+Web:wght@400;600;700&display=swap"
         rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 
     <div id="app">
+        <!-- Top App Navigation -->
+        <nav class="app-nav">
+            <button class="nav-tab active" data-target="start-screen">🏎️ Race Simulator</button>
+            <button class="nav-tab" data-target="analytics-screen">📊 Analytics Lab</button>
+        </nav>
+
         <!-- Screens will be injected here via JS -->
         <div id="start-screen" class="screen active">
             <h1 class="logo">PITWALL <span class="accent">PRO</span></h1>
@@ -144,6 +151,64 @@
             <h1>Session Complete</h1>
             <div id="podium-display"></div>
             <button id="restart-btn" class="action-btn">Return to Garage</button>
+        </div>
+
+        <!-- NEW: Analytics Screen -->
+        <div id="analytics-screen" class="screen hidden">
+            <div class="analytics-layout">
+                <!-- Config Panel -->
+                <aside class="analytics-config">
+                    <h2>Monte Carlo Settings</h2>
+                    
+                    <div class="input-group">
+                        <label>Circuit</label>
+                        <select id="analytics-circuit">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Target Driver</label>
+                        <select id="analytics-driver">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Simulations (N)</label>
+                        <select id="analytics-sims">
+                            <option value="100">100 (Fast)</option>
+                            <option value="1000" selected>1,000 (Standard)</option>
+                            <option value="5000">5,000 (Rigorous)</option>
+                        </select>
+                    </div>
+
+                    <button id="btn-run-analytics" class="action-btn" style="margin-top: 20px;">RUN ANALYSIS</button>
+
+                    <div id="analytics-progress" style="display:none; margin-top: 15px;">
+                        <div class="bar-container">
+                            <div id="analytics-progress-bar" class="bar" style="width: 0%; background: var(--success);"></div>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Results Dashboard -->
+                <main id="analytics-results" class="analytics-dashboard" style="opacity: 0.5;">
+                    <div class="dashboard-header">
+                        <h2>Optimization Results</h2>
+                        <div id="analytics-summary" class="summary-stats">
+                            <!-- Populated by JS -->
+                            <div class="stat-box">Select parameters and Run Analysis</div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <canvas id="distribution-chart"></canvas>
+                        </div>
+                    </div>
+                </main>
+            </div>
         </div>
     </div>
 
