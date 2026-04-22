@@ -355,6 +355,20 @@ export class HeadlessRaceEngine {
     }
 
     targetDriverStrategy(driver) {
+        // Failsafe for rain or totally dead tyres outside of planned strategy
+        if (this.weather.type === 'RAIN' && !['INTER', 'WET'].includes(driver.tyre)) {
+            driver.boxThisLap = true;
+            driver.pitPendingTyre = 'INTER';
+            return; // Interrupt planned strategy
+        }
+        
+        // If track dries up and we are on Inters, switch back to slicks
+        if (this.weather.type === 'DRY' && this.trackMoisture < 0.15 && ['INTER', 'WET'].includes(driver.tyre)) {
+            driver.boxThisLap = true;
+            driver.pitPendingTyre = 'MEDIUM'; // Safe default
+            return;
+        }
+
         // Evaluate target strategy
         if (this.targetStrategyIndex < this.targetStrategy.length) {
             const nextTyre = this.targetStrategy[this.targetStrategyIndex];
@@ -370,6 +384,10 @@ export class HeadlessRaceEngine {
                 driver.pitPendingTyre = nextTyre;
                 this.targetStrategyIndex++;
             }
+        } else if (driver.tyreHealth < 0.05) {
+            // Failsafe if strategy array exhausted but tyres are dead
+            driver.boxThisLap = true;
+            driver.pitPendingTyre = 'MEDIUM';
         }
         
         // ERS Management
