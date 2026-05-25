@@ -1,6 +1,6 @@
 import { HeadlessRaceEngine } from "./HeadlessRaceEngine.js";
 import { CIRCUITS } from "../data/circuits.js";
-import { DRIVERS } from "../data/drivers.js";
+import { DRIVERS, TEAMS } from "../data/drivers.js";
 
 /**
  * MonteCarloEngine
@@ -17,6 +17,7 @@ export class MonteCarloEngine {
         const circuit = CIRCUITS.find(c => c.id === config.circuitId);
         const targetDriver = DRIVERS.find(d => d.id === config.driverId);
         const N = config.numSims || 1000;
+        const season = config.season || "2024";
 
         if (!circuit || !targetDriver) throw new Error("Invalid Config");
 
@@ -41,18 +42,43 @@ export class MonteCarloEngine {
             const strategy = strategies[stratIdx];
 
             // Initialize headless engine
-            const engine = new HeadlessRaceEngine(DRIVERS, circuit, config.driverId, strategy);
+            const engine = new HeadlessRaceEngine(DRIVERS, circuit, config.driverId, strategy, season);
             
-            // Randomize grid positions slightly to simulate qualifying variance
-            // (In a real quant model, you'd use a separate qualifying distribution)
-            // For now, we'll just shuffle the non-target drivers
-            const grid = [...engine.drivers].sort((a,b) => Math.random() - 0.5);
-            // Put target driver in a realistic spot (e.g., P5)
-            const target = grid.find(d => d.id === config.driverId);
-            grid.splice(grid.indexOf(target), 1);
-            grid.splice(4, 0, target); // Force P5 for target driver to see strategy impact
+            // Stochastic Qualifying Model
+            // Realistic qualifying spread based on actual F1 performance gaps
+            const seasonTeams = TEAMS[season] || TEAMS["2024"];
+            engine.drivers.forEach(d => {
+                const teamData = seasonTeams[d.team];
+                const teamPerf = teamData ? teamData.performance : 0.90;
+                const affinity = d.affinities && d.affinities[circuit.id] ? d.affinities[circuit.id] : 1.0;
+                
+                // Base qualifying time scaled to circuit (e.g., ~90s for Spa, ~70s for Austria)
+                const baseQTime = circuit.baseLapTime * 0.98; // Quali is ~2% faster than race pace
+                
+                // Team performance gap: the dominant factor
+                // In real F1, the gap from P1 to P20 in qualifying is typically 3-5 seconds
+                // Performance range is 0.875 (Sauber) to 0.995 (McLaren) = 0.12 spread
+                // We need 0.12 spread -> ~4s of lap time difference
+                // So multiplier = (1.0 - teamPerf) * 35 gives: Sauber +4.4s, McLaren +0.2s
+                const teamPenalty = (1.0 - teamPerf) * 35;
+                
+                // Driver skill: secondary factor (~0.3s between best and worst teammate)
+                // Speed range 80-99, so (speed-80)*0.02 gives 0 to 0.38s advantage
+                const skillBonus = (d.speed - 80) * 0.02;
+                
+                // Track affinity: small but meaningful (~0.1-0.2s)
+                const affinityBonus = (affinity - 1.0) * 10;
+                
+                // Random variance: small enough to not override car performance
+                // Consistency 80 -> variance 0.3s, consistency 98 -> variance 0.03s
+                const variance = (100 - d.consistency) * 0.015;
+                const randomDelta = (Math.random() - 0.5) * variance;
+                
+                d.qTime = baseQTime + teamPenalty - skillBonus - affinityBonus + randomDelta;
+            });
             
-            engine.drivers = grid;
+            // Sort by qTime ascending (fastest first)
+            engine.drivers.sort((a, b) => a.qTime - b.qTime);
 
             // Run simulation
             const simResult = engine.simulateRace();

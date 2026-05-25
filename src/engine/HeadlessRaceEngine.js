@@ -7,8 +7,9 @@ import { TEAMS } from "../data/drivers.js";
  * Retains 100% of the physics, tyre wear, and weather logic.
  */
 export class HeadlessRaceEngine {
-    constructor(drivers, circuit, targetDriverId, targetStrategy) {
+    constructor(drivers, circuit, targetDriverId, targetStrategy, season = "2024") {
         this.circuit = circuit;
+        this.season = season;
         this.laps = circuit.laps;
         this.currentLap = 0;
         
@@ -237,10 +238,18 @@ export class HeadlessRaceEngine {
         let baseSpeed = this.getTrackLength() / this.circuit.baseLapTime;
         if (!Number.isFinite(baseSpeed)) baseSpeed = 50.0;
 
-        const teamData = TEAMS[driver.team];
-        const teamPerf = teamData ? teamData.performance : 0.95;
-        let teamMod = (teamPerf - 0.94) * 12;
-        let skillMod = (driver.speed - 90) * 0.025;
+        const seasonTeams = TEAMS[this.season] || TEAMS["2024"];
+        const teamData = seasonTeams[driver.team];
+        const teamPerf = teamData ? teamData.performance : 0.90;
+        // Amplified team performance gap for realistic pace separation
+        // McLaren (0.995) -> +1.375%, Sauber (0.875) -> -1.625% => ~3s/lap at 90s base
+        let teamMod = (teamPerf - 0.94) * 25;
+        // Driver skill gap: ~0.5-1s between best and worst on the grid
+        let skillMod = (driver.speed - 90) * 0.06;
+        
+        const affinity = driver.affinities && driver.affinities[this.circuit.id] ? driver.affinities[this.circuit.id] : 1.0;
+        const affinityMod = (affinity - 1.0) * 80;
+        skillMod += affinityMod;
 
         const tyre = TYRE_COMPOUNDS[driver.tyre];
         let tyrePaceDelta = -tyre.speedParams.base;
