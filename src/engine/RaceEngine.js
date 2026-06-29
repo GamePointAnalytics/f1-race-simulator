@@ -2,9 +2,10 @@ import { TYRE_COMPOUNDS } from "../data/circuits.js";
 import { TEAMS } from "../data/drivers.js";
 
 export class RaceEngine {
-    constructor(drivers, circuit, userDriverId, userStartTyre, difficulty = 'HARD') {
+    constructor(drivers, circuit, userDriverId, userStartTyre, difficulty = 'HARD', season = '2024') {
         this.circuit = circuit;
         this.difficulty = difficulty;
+        this.season = season;
         this.laps = circuit.laps;
         this.currentLap = 0; // Leading car lap
 
@@ -377,7 +378,8 @@ export class RaceEngine {
         if (!Number.isFinite(baseSpeed)) baseSpeed = 50.0; // Fallback to avoid NaN
 
         // --- TEAM PERFORMANCE ---
-        const teamData = TEAMS[driver.team];
+        const seasonTeams = TEAMS[this.season] || TEAMS["2024"];
+        const teamData = seasonTeams[driver.team];
         const teamPerf = teamData ? teamData.performance : 0.95;
         // Range 0.88 to 0.99. Mid 0.93.
         // Scale to % modifier. 
@@ -390,6 +392,11 @@ export class RaceEngine {
         // 99 -> +0.22%. 80 -> -0.25%.
         // Spread ~0.5%. (approx 0.4s lap time diff from driver).
         let skillMod = (driver.speed - 90) * 0.025; // Reduced from 0.04
+        
+        // --- TRACK AFFINITY ---
+        const affinity = driver.affinities && driver.affinities[this.circuit.id] ? driver.affinities[this.circuit.id] : 1.0;
+        const affinityMod = (affinity - 1.0) * 50; // Boost speed significantly if affinity > 1
+        skillMod += affinityMod;
 
         // --- TYRE BASE ---
         const tyre = TYRE_COMPOUNDS[driver.tyre];

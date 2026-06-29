@@ -44,8 +44,9 @@ function setupTabs() {
 function setupAnalyticsSelectors() {
     const circuitSel = document.getElementById('analytics-circuit');
     const driverSel = document.getElementById('analytics-driver');
+    const seasonSel = document.getElementById('analytics-season');
     
-    if (circuitSel) {
+    if (circuitSel && circuitSel.options.length === 0) {
         CIRCUITS.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
@@ -54,25 +55,42 @@ function setupAnalyticsSelectors() {
         });
     }
     
-    if (driverSel) {
+    function populateDrivers() {
+        if (!driverSel) return;
+        const season = seasonSel ? seasonSel.value : "2024";
+        const selectedDriver = driverSel.value;
+        driverSel.innerHTML = '';
         DRIVERS.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d.id;
-            opt.textContent = `${d.name} (${TEAMS[d.team].name})`;
+            const teamName = TEAMS[season][d.team] ? TEAMS[season][d.team].name : d.team;
+            opt.textContent = `${d.name} (${teamName})`;
             driverSel.appendChild(opt);
+        });
+        if (selectedDriver) driverSel.value = selectedDriver;
+    }
+    
+    populateDrivers();
+    if (seasonSel) seasonSel.addEventListener('change', populateDrivers);
+    
+    const appSeasonSel = document.getElementById('season-select');
+    if (appSeasonSel) {
+        appSeasonSel.addEventListener('change', () => {
+            ui.renderSelectionGrids(DRIVERS, CIRCUITS, startRace, appSeasonSel.value);
         });
     }
 }
 
 function startRace(driverId, circuitId, tyreId, difficulty) {
-    console.log("Starting Session:", { driverId, circuitId, tyreId, difficulty });
+    const season = document.getElementById('season-select').value || "2024";
+    console.log("Starting Session:", { driverId, circuitId, tyreId, difficulty, season });
     userDriverId = driverId;
     const circuit = CIRCUITS.find(c => c.id === circuitId);
     if (!circuit) return console.error("Circuit not found!", circuitId);
 
     // 1. Run Qualifying
     console.log("Simulating Qualifying...");
-    const qualiResults = QualifyingSession.simulate(DRIVERS, circuit, difficulty);
+    const qualiResults = QualifyingSession.simulate(DRIVERS, circuit, difficulty, season);
 
     // Create Grid Order
     const gridProps = qualiResults.map(q => {
@@ -89,7 +107,7 @@ function startRace(driverId, circuitId, tyreId, difficulty) {
         alert(`QUALIFYING RESULTS\n\nPole Position: ${pole.name} (${pole.formattedTime})\nYour Position: P${userPos} (${userQ.formattedTime})\n\nClick OK to Start Race.`);
 
         // 2. Initialize Engine with Sorted Grid
-        engine = new RaceEngine(gridProps, circuit, userDriverId, tyreId, difficulty);
+        engine = new RaceEngine(gridProps, circuit, userDriverId, tyreId, difficulty, season);
         engine.onUpdate = onGameUpdate;
         engine.onLapComplete = onLapComplete;
         engine.onRaceFinish = onRaceFinish;

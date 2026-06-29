@@ -12,6 +12,7 @@
 
     --font-heading: 'Titillium Web', sans-serif;
     --font-body: 'Outfit', sans-serif;
+    --nav-height: 58px;
 }
 
 * {
@@ -37,7 +38,10 @@ body {
 
 .screen {
     position: absolute;
-    inset: 0;
+    top: var(--nav-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: flex;
     flex-direction: column;
     padding: 20px;
@@ -155,7 +159,8 @@ h3 {
     display: grid;
     grid-template-columns: 300px 1fr 300px;
     gap: 20px;
-    height: calc(100vh - 100px);
+    flex: 1;
+    min-height: 0;
     /* Fill remaining space minus header */
     overflow: hidden;
     /* Prevent body scroll */
@@ -491,8 +496,10 @@ h3 {
 /* --- Navigation --- */
 .app-nav {
     display: flex;
+    align-items: center;
     background: #111;
-    padding: 10px 20px;
+    padding: 0 20px;
+    height: var(--nav-height);
     gap: 15px;
     border-bottom: 1px solid #333;
     z-index: 10;
@@ -525,7 +532,8 @@ h3 {
 /* --- Analytics Layout --- */
 .analytics-layout {
     display: flex;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     gap: 20px;
 }
 

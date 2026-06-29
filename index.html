@@ -29,6 +29,14 @@
             <h1 class="logo">PITWALL <span class="accent">PRO</span></h1>
             <div class="setup-container">
                 <div class="selection-group">
+                    <h2>Select Season</h2>
+                    <select id="season-select" class="form-select" style="background:#111; color:#fff; padding:10px; border-radius:4px; margin-bottom:15px; width: 100%; border: 1px solid #444;">
+                        <option value="2024" selected>2024 (Current)</option>
+                        <option value="2023">2023 (Red Bull Dominance)</option>
+                        <option value="2021">2021 (Merc vs RB)</option>
+                    </select>
+                </div>
+                <div class="selection-group">
                     <h2>Select Driver</h2>
                     <div id="driver-grid" class="grid-select"></div>
                 </div>
@@ -159,6 +167,15 @@
                 <!-- Config Panel -->
                 <aside class="analytics-config">
                     <h2>Monte Carlo Settings</h2>
+
+                    <div class="input-group">
+                        <label>Season</label>
+                        <select id="analytics-season">
+                            <option value="2024" selected>2024 (Current)</option>
+                            <option value="2023">2023 (Red Bull Dominance)</option>
+                            <option value="2021">2021 (Merc vs RB)</option>
+                        </select>
+                    </div>
                     
                     <div class="input-group">
                         <label>Circuit</label>
