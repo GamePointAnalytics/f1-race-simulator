@@ -42,6 +42,7 @@ export class UIManager {
                 toggleBtn.textContent = this.showInterval ? "[INTERVAL]" : "[LEADER]";
             };
         }
+        this.season = '2024'; // Default season
     }
 
     showScreen(name) {
@@ -69,9 +70,10 @@ export class UIManager {
 
             const spot = document.createElement('div');
             spot.className = `podium-spot ${posClass}`;
+            const team = TEAMS[this.season]?.[d.team] || { name: d.team, color: '#fff' };
             spot.innerHTML = `
                 <div class="driver-name">${d.name}</div>
-                <div class="team-name" style="color:${TEAMS[d.team].color}">${TEAMS[d.team].name}</div>
+                <div class="team-name" style="color:${team.color}">${team.name}</div>
                 <div class="podium-bar">
                     <div style="font-size:2rem">${posLabel}</div>
                 </div>
@@ -97,11 +99,12 @@ export class UIManager {
                 ${drivers.map((d, i) => {
             const isMe = d.id === userDriverId;
             const rowStyle = isMe ? 'background: rgba(59, 130, 246, 0.2); font-weight:bold; border-left: 4px solid #3b82f6;' : '';
+            const team = TEAMS[this.season]?.[d.team] || { name: d.team, color: '#fff' };
             return `
                     <tr style="${rowStyle}">
                         <td>${i + 1}</td>
                         <td>${d.name}</td>
-                        <td style="color:${TEAMS[d.team].color}">${TEAMS[d.team].name}</td>
+                        <td style="color:${team.color}">${team.name}</td>
                         <td class="points-col">${this.getPoints(i + 1) > 0 ? '+' + this.getPoints(i + 1) : ''}</td>
                     </tr>
                 `}).join('')}
@@ -118,15 +121,17 @@ export class UIManager {
         return pts[pos - 1] || 0;
     }
 
-    renderSelectionGrids(drivers, circuits, onSelect) {
+    renderSelectionGrids(drivers, circuits, onSelect, season = '2024') {
+        this.season = season;
         // Render Drivers
         this.elements.driverGrid.innerHTML = '';
         drivers.forEach(d => {
             const card = document.createElement('div');
             card.className = 'driver-card';
+            const team = TEAMS[this.season]?.[d.team] || { name: d.team, color: '#fff' };
             card.innerHTML = `
                 <div style="font-weight:bold">${d.name}</div>
-                <div style="font-size:0.8em; color:${TEAMS[d.team].color}">${TEAMS[d.team].name}</div>
+                <div style="font-size:0.8em; color:${team.color}">${team.name}</div>
             `;
             card.onclick = () => {
                 this.elements.driverGrid.querySelectorAll('.driver-card').forEach(c => c.classList.remove('selected'));
@@ -438,7 +443,8 @@ export class UIManager {
                 }
             }
 
-            const teamColor = TEAMS[d.team].color;
+            const team = TEAMS[this.season]?.[d.team] || { name: d.team, color: '#fff' };
+            const teamColor = team.color;
             const pitStatus = d.isInPit ? ' [PIT]' : '';
 
             return `
