@@ -892,6 +892,7 @@ export class RaceEngine {
             // Every 3 laps
             if (userDriver.lap > this.lastGapMsgLap + 2) {
                 this.lastGapMsgLap = userDriver.lap;
+                const seasonTeams = TEAMS[this.season] || TEAMS["2024"];
 
                 let parts = [];
                 // Gap to Ahead
@@ -899,14 +900,14 @@ export class RaceEngine {
                     const ahead = this.drivers.find(d => d.position === userDriver.position - 1);
                     if (ahead) {
                         const gap = Math.max(0, (ahead.distance - userDriver.distance) / 60.0).toFixed(1);
-                        parts.push(`Gap to ${TEAMS[ahead.team].name}: +${gap}s`);
+                        parts.push(`Gap to ${seasonTeams[ahead.team]?.name || ahead.team}: +${gap}s`);
                     }
                 }
                 // Gap to Behind
                 const behind = this.drivers.find(d => d.position === userDriver.position + 1);
                 if (behind) {
                     const gap = Math.max(0, (userDriver.distance - behind.distance) / 60.0).toFixed(1);
-                    parts.push(`Behind ${TEAMS[behind.team].name}: +${gap}s`);
+                    parts.push(`Behind ${seasonTeams[behind.team]?.name || behind.team}: +${gap}s`);
                 }
 
                 if (parts.length > 0) {

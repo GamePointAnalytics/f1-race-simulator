@@ -1,4 +1,4 @@
-import { DRIVERS, TEAMS } from "./data/drivers.js";
+import { TEAMS, getDriversForSeason } from "./data/drivers.js";
 import { CIRCUITS } from "./data/circuits.js";
 import { RaceEngine } from "./engine/RaceEngine.js";
 import { UIManager } from "./ui/UIManager.js";
@@ -12,7 +12,9 @@ let userDriverId = null;
 let gameLoopId = null;
 
 // Initial Setup
-ui.renderSelectionGrids(DRIVERS, CIRCUITS, startRace);
+const initialSeasonSel = document.getElementById('season-select');
+const initialSeason = initialSeasonSel ? initialSeasonSel.value : '2024';
+ui.renderSelectionGrids(getDriversForSeason(initialSeason), CIRCUITS, startRace, initialSeason);
 setupTabs();
 setupAnalyticsSelectors();
 
@@ -60,23 +62,23 @@ function setupAnalyticsSelectors() {
         const season = seasonSel ? seasonSel.value : "2024";
         const selectedDriver = driverSel.value;
         driverSel.innerHTML = '';
-        DRIVERS.forEach(d => {
+        getDriversForSeason(season).forEach(d => {
             const opt = document.createElement('option');
             opt.value = d.id;
-            const teamName = TEAMS[season][d.team] ? TEAMS[season][d.team].name : d.team;
+            const teamName = TEAMS[season]?.[d.team] ? TEAMS[season][d.team].name : d.team;
             opt.textContent = `${d.name} (${teamName})`;
             driverSel.appendChild(opt);
         });
         if (selectedDriver) driverSel.value = selectedDriver;
     }
-    
+
     populateDrivers();
     if (seasonSel) seasonSel.addEventListener('change', populateDrivers);
-    
+
     const appSeasonSel = document.getElementById('season-select');
     if (appSeasonSel) {
         appSeasonSel.addEventListener('change', () => {
-            ui.renderSelectionGrids(DRIVERS, CIRCUITS, startRace, appSeasonSel.value);
+            ui.renderSelectionGrids(getDriversForSeason(appSeasonSel.value), CIRCUITS, startRace, appSeasonSel.value);
         });
     }
 }
@@ -90,11 +92,12 @@ function startRace(driverId, circuitId, tyreId, difficulty) {
 
     // 1. Run Qualifying
     console.log("Simulating Qualifying...");
-    const qualiResults = QualifyingSession.simulate(DRIVERS, circuit, difficulty, season);
+    const seasonDrivers = getDriversForSeason(season);
+    const qualiResults = QualifyingSession.simulate(seasonDrivers, circuit, difficulty, season);
 
     // Create Grid Order
     const gridProps = qualiResults.map(q => {
-        return DRIVERS.find(d => d.id === q.id);
+        return seasonDrivers.find(d => d.id === q.id);
     });
 
     // Notify User

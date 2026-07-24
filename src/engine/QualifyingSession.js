@@ -2,9 +2,10 @@
 import { TEAMS } from "../data/drivers.js";
 
 export class QualifyingSession {
-    static simulate(drivers, circuit, difficulty) {
+    static simulate(drivers, circuit, difficulty, season = "2024") {
         // Base variability (0.3s) - reduced from 1.5% to minimize random upsets
         const baseVar = circuit.baseLapTime * 0.005;
+        const seasonTeams = TEAMS[season] || TEAMS["2024"];
 
         // Shuffle slightly first to break default order if identical speeds
         const shuffled = [...drivers].sort(() => Math.random() - 0.5);
@@ -12,7 +13,7 @@ export class QualifyingSession {
         const results = shuffled.map(d => {
             // Team Performance (Dominant Factor)
             // 0.995 vs 0.875 -> 12% diff in raw stat
-            const teamData = TEAMS[d.team];
+            const teamData = seasonTeams[d.team];
             const teamPerf = teamData ? teamData.performance : 0.90;
             // Map 0.995 -> -0.8s. 0.875 -> +0.8s.
             // Delta = 1.6s spread.

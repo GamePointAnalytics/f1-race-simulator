@@ -1,6 +1,6 @@
 import { HeadlessRaceEngine } from "./HeadlessRaceEngine.js";
 import { CIRCUITS } from "../data/circuits.js";
-import { DRIVERS, TEAMS } from "../data/drivers.js";
+import { TEAMS, getDriversForSeason } from "../data/drivers.js";
 
 /**
  * MonteCarloEngine
@@ -15,9 +15,10 @@ export class MonteCarloEngine {
      */
     static async run(config, onProgress) {
         const circuit = CIRCUITS.find(c => c.id === config.circuitId);
-        const targetDriver = DRIVERS.find(d => d.id === config.driverId);
         const N = config.numSims || 1000;
         const season = config.season || "2024";
+        const seasonDrivers = getDriversForSeason(season);
+        const targetDriver = seasonDrivers.find(d => d.id === config.driverId);
 
         if (!circuit || !targetDriver) throw new Error("Invalid Config");
 
@@ -42,7 +43,7 @@ export class MonteCarloEngine {
             const strategy = strategies[stratIdx];
 
             // Initialize headless engine
-            const engine = new HeadlessRaceEngine(DRIVERS, circuit, config.driverId, strategy, season);
+            const engine = new HeadlessRaceEngine(seasonDrivers, circuit, config.driverId, strategy, season);
             
             // Stochastic Qualifying Model
             // Realistic qualifying spread based on actual F1 performance gaps

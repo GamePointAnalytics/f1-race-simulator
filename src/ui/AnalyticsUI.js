@@ -19,6 +19,8 @@ export class AnalyticsUI {
         const circuitId = document.getElementById('analytics-circuit').value;
         const driverId = document.getElementById('analytics-driver').value;
         const numSims = parseInt(document.getElementById('analytics-sims').value) || 1000;
+        const seasonSel = document.getElementById('analytics-season');
+        const season = seasonSel ? seasonSel.value : "2024";
 
         if (!circuitId || !driverId) {
             alert("Select circuit and driver first.");
@@ -36,7 +38,8 @@ export class AnalyticsUI {
             const results = await MonteCarloEngine.run({
                 circuitId,
                 driverId,
-                numSims
+                numSims,
+                season
             }, (progress) => {
                 this.progressBar.style.width = `${progress * 100}%`;
             });
