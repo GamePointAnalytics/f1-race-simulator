@@ -121,6 +121,7 @@ export class AnalyticsUI {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     title: { display: true, text: 'Finishing Position Distribution (Top 2 Strategies)', color: '#fff' },
                     legend: { labels: { color: '#fff' } }
