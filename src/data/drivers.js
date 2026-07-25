@@ -38,6 +38,21 @@ export const TEAMS = {
         ALPINE: { name: "Alpine", color: "#FF87BC", performance: 0.920 },
         SAUBER: { name: "Alfa Romeo", color: "#900000", performance: 0.880 }
     },
+    // New ground-effect regulations reset the order: Red Bull overcame early
+    // reliability trouble to dominate, Ferrari led early but faded, Mercedes
+    // struggled with porpoising all year. Hand-estimated, not fit to standings.
+    "2022": {
+        RED_BULL: { name: "Red Bull Racing", color: "#3671C6", performance: 1.000 },
+        FERRARI: { name: "Ferrari", color: "#F91536", performance: 0.965 },
+        MERCEDES: { name: "Mercedes", color: "#6CD3BF", performance: 0.960 },
+        ALPINE: { name: "Alpine", color: "#0090FF", performance: 0.920 },
+        MCLAREN: { name: "McLaren", color: "#FF8700", performance: 0.915 },
+        ASTON_MARTIN: { name: "Aston Martin", color: "#229971", performance: 0.895 },
+        SAUBER: { name: "Alfa Romeo", color: "#900000", performance: 0.893 },
+        HAAS: { name: "Haas", color: "#B6BABD", performance: 0.880 },
+        RB: { name: "AlphaTauri", color: "#2B4562", performance: 0.875 },
+        WILLIAMS: { name: "Williams", color: "#005AFF", performance: 0.860 }
+    },
     "2021": {
         RED_BULL: { name: "Red Bull Racing", color: "#0600EF", performance: 0.995 },
         MERCEDES: { name: "Mercedes", color: "#00D2BE", performance: 0.995 }, // Even fight
@@ -134,6 +149,18 @@ const SEASON_ROSTERS = {
         ['tsu', 'RB'], ['ric', 'RB'],
         ['bot', 'SAUBER'], ['zho', 'SAUBER'],
         ['mag', 'HAAS'], ['hul', 'HAAS']
+    ],
+    "2022": [
+        ['ver', 'RED_BULL'], ['per', 'RED_BULL'],
+        ['lec', 'FERRARI'], ['sai', 'FERRARI'],
+        ['ham', 'MERCEDES'], ['rus', 'MERCEDES'],
+        ['alo', 'ALPINE'], ['oco', 'ALPINE'],
+        ['nor', 'MCLAREN'], ['ric', 'MCLAREN'],
+        ['vet', 'ASTON_MARTIN'], ['str', 'ASTON_MARTIN'],
+        ['bot', 'SAUBER'], ['zho', 'SAUBER'],
+        ['mag', 'HAAS'], ['mic', 'HAAS'],
+        ['gas', 'RB'], ['tsu', 'RB'],
+        ['alb', 'WILLIAMS'], ['lat', 'WILLIAMS']
     ],
     "2021": [
         ['ver', 'RED_BULL'], ['per', 'RED_BULL'],
