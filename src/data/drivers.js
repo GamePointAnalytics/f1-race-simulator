@@ -1,4 +1,19 @@
 export const TEAMS = {
+    // Hand-estimated from general season narrative (McLaren dominant, Mercedes/Williams
+    // resurgent, Red Bull carried by Verstappen individually, Alpine/Sauber at the back).
+    // Not fit against final championship data — treat as approximate.
+    "2025": {
+        MCLAREN: { name: "McLaren", color: "#FF8000", performance: 1.000 },
+        MERCEDES: { name: "Mercedes", color: "#6CD3BF", performance: 0.965 },
+        FERRARI: { name: "Ferrari", color: "#F91536", performance: 0.955 },
+        RED_BULL: { name: "Red Bull Racing", color: "#3671C6", performance: 0.950 },
+        WILLIAMS: { name: "Williams", color: "#64C4FF", performance: 0.930 },
+        RB: { name: "Racing Bulls", color: "#6692FF", performance: 0.910 },
+        HAAS: { name: "Haas", color: "#B6BABD", performance: 0.905 },
+        ASTON_MARTIN: { name: "Aston Martin", color: "#229971", performance: 0.900 },
+        ALPINE: { name: "Alpine", color: "#FF87BC", performance: 0.880 },
+        SAUBER: { name: "Sauber", color: "#52E252", performance: 0.870 }
+    },
     "2024": {
         RED_BULL: { name: "Red Bull Racing", color: "#3671C6", performance: 0.985 },
         MCLAREN: { name: "McLaren", color: "#FF8000", performance: 0.995 },
@@ -61,6 +76,7 @@ const DRIVERS_DB = {
     doo: { id: "doo", name: "Jack Doohan", team: "ALPINE", speed: 85, tyreMgmt: 83, consistency: 82, affinities: { 'oz': 1.01 } },
     bor: { id: "bor", name: "Gabriel Bortoleto", team: "SAUBER", speed: 85, tyreMgmt: 84, consistency: 81, affinities: { 'interlagos': 1.015 } },
     per: { id: "per", name: "Sergio Perez", team: "RED_BULL", speed: 92, tyreMgmt: 96, consistency: 90, affinities: { 'baku': 1.025, 'jeddah': 1.015, 'monaco': 1.01 } },
+    had: { id: "had", name: "Isack Hadjar", team: "RB", speed: 86, tyreMgmt: 84, consistency: 82, affinities: {} },
 
     // Historical-only drivers (not on the 2025 grid) needed for older season rosters
     ric: { id: "ric", name: "Daniel Ricciardo", team: "RB", speed: 90, tyreMgmt: 90, consistency: 87, affinities: { 'monza': 1.015, 'monaco': 1.01 } },
@@ -81,13 +97,16 @@ const DRIVERS_DB = {
 // drivers themselves move teams (e.g. Hamilton: Mercedes in 2024 -> Ferrari in 2025).
 const SEASON_ROSTERS = {
     "2025": [
-        ['ver', 'RED_BULL'], ['per', 'RED_BULL'],
+        // Red Bull dropped Perez after 2024; Lawson took the seat for round 1-2, then swapped
+        // back to Racing Bulls with Tsunoda promoted for the rest of the season. Modeled as
+        // season-long Verstappen/Tsunoda + Lawson/Hadjar rather than tracking the mid-season swap.
+        ['ver', 'RED_BULL'], ['tsu', 'RED_BULL'],
         ['nor', 'MCLAREN'], ['pia', 'MCLAREN'],
         ['lec', 'FERRARI'], ['ham', 'FERRARI'],
         ['rus', 'MERCEDES'], ['ant', 'MERCEDES'],
         ['alo', 'ASTON_MARTIN'], ['str', 'ASTON_MARTIN'],
         ['oco', 'HAAS'], ['bea', 'HAAS'],
-        ['tsu', 'RB'], ['law', 'RB'],
+        ['law', 'RB'], ['had', 'RB'],
         ['sai', 'WILLIAMS'], ['alb', 'WILLIAMS'],
         ['gas', 'ALPINE'], ['doo', 'ALPINE'],
         ['hul', 'SAUBER'], ['bor', 'SAUBER']
