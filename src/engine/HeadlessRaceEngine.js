@@ -406,6 +406,21 @@ export class HeadlessRaceEngine {
     }
 
     aiStrategy(driver) {
+        // Weather reaction — mirrors the target driver's failsafe above. Without this,
+        // background AI cars never react to rain (they only pit on tyre wear), so in any
+        // wet race the analyzed driver is the only car on the right tyres and wins by
+        // default regardless of actual pace.
+        if (this.weather.type === 'RAIN' && !['INTER', 'WET'].includes(driver.tyre)) {
+            driver.boxThisLap = true;
+            driver.pitPendingTyre = 'INTER';
+            return;
+        }
+        if (this.weather.type === 'DRY' && this.trackMoisture < 0.15 && ['INTER', 'WET'].includes(driver.tyre)) {
+            driver.boxThisLap = true;
+            driver.pitPendingTyre = 'MEDIUM';
+            return;
+        }
+
         // simplified AI strategy logic from RaceEngine
         let wearThreshold = driver.tyre === 'SOFT' ? 0.35 : (driver.tyre === 'MEDIUM' ? 0.30 : 0.20);
         if (driver.tyreHealth < wearThreshold && !driver.boxThisLap) {
